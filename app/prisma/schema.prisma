@@ -1,0 +1,104 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [postgis, uuidOssp(map: "uuid-ossp")]
+}
+
+model Course {
+  id            String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  courseNumber  String?  @unique @map("course_number")
+  name          String
+  distanceKm    Float    @map("distance_km")
+  elevationM    Int      @map("elevation_m")
+  estimatedTime String?  @map("estimated_time")
+  startLocation String   @map("start_location")
+  endLocation   String   @map("end_location")
+  region        String
+  category      String[] @default([])
+  tags          String[] @default([])
+  description   String?
+  designer      String?
+  gpxFileKey    String?  @map("gpx_file_key")
+  archived      Boolean  @default(false)
+  geom          Unsupported("geometry(LineString, 4326)")?
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  completions  Completion[]
+  downloads    Download[]
+  checkpoints  Checkpoint[]
+  favorites    Favorite[]
+
+  @@map("courses")
+}
+
+model User {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  keycloakId  String   @unique @map("keycloak_id")
+  displayName String   @map("display_name")
+  email       String   @unique
+  role        String   @default("user")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  completions Completion[]
+  favorites   Favorite[]
+
+  @@map("users")
+}
+
+model Completion {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  courseId     String   @map("course_id") @db.Uuid
+  completedAt DateTime @map("completed_at")
+  gpxFileKey  String?  @map("gpx_file_key")
+  notes       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@map("completions")
+}
+
+model Download {
+  id           String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  courseId      String   @map("course_id") @db.Uuid
+  downloadedAt DateTime @default(now()) @map("downloaded_at")
+  ipHash       String?  @map("ip_hash")
+
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@map("downloads")
+}
+
+model Checkpoint {
+  id          String  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  courseId     String  @map("course_id") @db.Uuid
+  name        String
+  description String?
+  distanceKm  Float   @map("distance_km")
+  imageKey    String? @map("image_key")
+  sortOrder   Int     @default(0) @map("sort_order")
+
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@map("checkpoints")
+}
+
+model Favorite {
+  id       String @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId   String @map("user_id") @db.Uuid
+  courseId  String @map("course_id") @db.Uuid
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
+  @@map("favorites")
+}

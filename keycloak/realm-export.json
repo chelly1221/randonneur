@@ -1,0 +1,59 @@
+{
+  "realm": "randonneur",
+  "enabled": true,
+  "registrationAllowed": true,
+  "registrationEmailAsUsername": true,
+  "loginWithEmailAllowed": true,
+  "roles": {
+    "realm": [
+      {
+        "name": "admin",
+        "description": "Administrator role"
+      },
+      {
+        "name": "user",
+        "description": "Regular user role"
+      }
+    ]
+  },
+  "defaultRoles": ["user"],
+  "clients": [
+    {
+      "clientId": "randonneur-app",
+      "name": "Randonneur App",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "Scott122001&&",
+      "redirectUris": [
+        "https://randonneur.3chan.kr/*",
+        "http://localhost:3100/*",
+        "http://localhost:3000/*"
+      ],
+      "webOrigins": [
+        "https://randonneur.3chan.kr",
+        "http://localhost:3100",
+        "http://localhost:3000"
+      ],
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "publicClient": false,
+      "protocol": "openid-connect",
+      "protocolMappers": [
+        {
+          "name": "realm-roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "multivalued": "true",
+            "userinfo.token.claim": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "realm_access.roles",
+            "jsonType.label": "String"
+          }
+        }
+      ]
+    }
+  ]
+}

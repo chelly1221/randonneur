@@ -1,0 +1,390 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ================================================================
+   THEME: DAY (default) — clear blue sky, bright and clean
+   ================================================================ */
+:root,
+[data-theme="day"] {
+  --t-bg: #ffffff;
+  --t-surface: #ffffff;
+  --t-subtle: rgba(26, 35, 126, 0.05);
+  --t-hover: rgba(79, 195, 247, 0.06);
+  --t-border: rgba(26, 35, 126, 0.1);
+  --t-divider: rgba(26, 35, 126, 0.05);
+  --t-text: #0a0a0a;
+  --t-sub: rgba(26, 35, 126, 0.6);
+  --t-muted: rgba(26, 35, 126, 0.4);
+  --t-faint: rgba(26, 35, 126, 0.25);
+  --t-icon: #1a237e;
+  --t-header: #1a237e;
+  --t-header-x: #283593;
+  --t-sidebar: #0d1642;
+  --t-accent: #ff9800;
+  --t-accent-x: #e68600;
+  --t-link: #0288d1;
+  --t-link-x: #e65100;
+  --t-focus: #4fc3f7;
+  --t-primary: #1a237e;
+  --t-primary-x: #283593;
+  --t-secondary: rgba(79, 195, 247, 0.1);
+  --t-secondary-x: rgba(79, 195, 247, 0.18);
+  --t-outline-bg: #ffffff;
+  --t-outline-hover: rgba(79, 195, 247, 0.06);
+  --t-outline-border: rgba(26, 35, 126, 0.2);
+  --t-badge-bg: rgba(26, 35, 126, 0.06);
+  --t-badge-text: #283593;
+  --t-badge-p-bg: rgba(79, 195, 247, 0.15);
+  --t-badge-p-text: #1a237e;
+  --t-success: #0288d1;
+  --t-danger: #e53935;
+  --t-hero: linear-gradient(180deg, #0d1642 0%, #1a237e 30%, #0288d1 70%, #4fc3f7 100%);
+  --t-hero-accent: #ff9800;
+}
+
+/* ================================================================
+   THEME: DAWN — first light, purple-indigo horizon, rose gold glow
+   ================================================================ */
+[data-theme="dawn"] {
+  --t-bg: #f8f2ec;
+  --t-surface: #fefcf8;
+  --t-subtle: rgba(120, 70, 40, 0.06);
+  --t-hover: rgba(180, 120, 60, 0.06);
+  --t-border: rgba(100, 60, 35, 0.12);
+  --t-divider: rgba(100, 60, 35, 0.06);
+  --t-text: #2c1810;
+  --t-sub: rgba(70, 35, 18, 0.7);
+  --t-muted: rgba(70, 35, 18, 0.45);
+  --t-faint: rgba(70, 35, 18, 0.3);
+  --t-icon: #7b4a2a;
+  --t-header: #1a1040;
+  --t-header-x: #261560;
+  --t-sidebar: #120830;
+  --t-accent: #d4870e;
+  --t-accent-x: #b8740a;
+  --t-link: #a0422e;
+  --t-link-x: #7a3020;
+  --t-focus: #d4870e;
+  --t-primary: #6b2fa0;
+  --t-primary-x: #7e3db5;
+  --t-secondary: rgba(212, 135, 14, 0.12);
+  --t-secondary-x: rgba(212, 135, 14, 0.2);
+  --t-outline-bg: #fefcf8;
+  --t-outline-hover: rgba(180, 120, 60, 0.08);
+  --t-outline-border: rgba(100, 60, 35, 0.2);
+  --t-badge-bg: rgba(120, 70, 40, 0.08);
+  --t-badge-text: #7b4a2a;
+  --t-badge-p-bg: rgba(212, 135, 14, 0.15);
+  --t-badge-p-text: #5c3000;
+  --t-success: #8b6914;
+  --t-danger: #c0392b;
+  --t-hero: linear-gradient(135deg, #1a1040 0%, #4a1a6e 20%, #8e3060 40%, #c0603a 60%, #d4870e 80%, #fdd835 100%);
+  --t-hero-accent: #fdd835;
+}
+
+/* ================================================================
+   THEME: SUNSET — warm reds and oranges flooding the sky
+   ================================================================ */
+[data-theme="sunset"] {
+  --t-bg: #fdf2ed;
+  --t-surface: #ffffff;
+  --t-subtle: rgba(180, 50, 15, 0.05);
+  --t-hover: rgba(230, 81, 0, 0.06);
+  --t-border: rgba(130, 40, 15, 0.12);
+  --t-divider: rgba(130, 40, 15, 0.06);
+  --t-text: #1a0800;
+  --t-sub: rgba(90, 25, 8, 0.65);
+  --t-muted: rgba(90, 25, 8, 0.4);
+  --t-faint: rgba(90, 25, 8, 0.25);
+  --t-icon: #bf360c;
+  --t-header: #4a0e0e;
+  --t-header-x: #5c1414;
+  --t-sidebar: #320a0a;
+  --t-accent: #e65100;
+  --t-accent-x: #cc4700;
+  --t-link: #c62828;
+  --t-link-x: #a01c1c;
+  --t-focus: #ff9800;
+  --t-primary: #bf360c;
+  --t-primary-x: #d84315;
+  --t-secondary: rgba(230, 81, 0, 0.1);
+  --t-secondary-x: rgba(230, 81, 0, 0.18);
+  --t-outline-bg: #ffffff;
+  --t-outline-hover: rgba(230, 81, 0, 0.06);
+  --t-outline-border: rgba(130, 40, 15, 0.2);
+  --t-badge-bg: rgba(180, 50, 15, 0.07);
+  --t-badge-text: #bf360c;
+  --t-badge-p-bg: rgba(255, 152, 0, 0.15);
+  --t-badge-p-text: #7f3000;
+  --t-success: #d84315;
+  --t-danger: #b71c1c;
+  --t-hero: linear-gradient(135deg, #0d1642 0%, #4a0e3a 15%, #c62828 35%, #e65100 55%, #ff9800 75%, #fdd835 100%);
+  --t-hero-accent: #fdd835;
+}
+
+/* ================================================================
+   THEME: NIGHT — deep darkness, starlight, cool cyan glow
+   ================================================================ */
+[data-theme="night"] {
+  --t-bg: #08081a;
+  --t-surface: #12122a;
+  --t-subtle: rgba(255, 255, 255, 0.04);
+  --t-hover: rgba(255, 255, 255, 0.06);
+  --t-border: rgba(255, 255, 255, 0.08);
+  --t-divider: rgba(255, 255, 255, 0.05);
+  --t-text: #e0e0f0;
+  --t-sub: #9a9ab8;
+  --t-muted: #6e6e90;
+  --t-faint: #505068;
+  --t-icon: #7986cb;
+  --t-header: #050510;
+  --t-header-x: #0a0a20;
+  --t-sidebar: #04040a;
+  --t-accent: #4fc3f7;
+  --t-accent-x: #3aacde;
+  --t-link: #80d8ff;
+  --t-link-x: #b3e5fc;
+  --t-focus: #4fc3f7;
+  --t-primary: #283593;
+  --t-primary-x: #3949ab;
+  --t-secondary: rgba(79, 195, 247, 0.1);
+  --t-secondary-x: rgba(79, 195, 247, 0.18);
+  --t-outline-bg: #12122a;
+  --t-outline-hover: rgba(255, 255, 255, 0.06);
+  --t-outline-border: rgba(255, 255, 255, 0.15);
+  --t-badge-bg: rgba(255, 255, 255, 0.06);
+  --t-badge-text: #b0b0d0;
+  --t-badge-p-bg: rgba(79, 195, 247, 0.15);
+  --t-badge-p-text: #80d8ff;
+  --t-success: #4fc3f7;
+  --t-danger: #ef5350;
+  --t-hero: linear-gradient(180deg, #000005 0%, #050518 25%, #0a0a30 50%, #0d1642 75%, #1a237e 100%);
+  --t-hero-accent: #4fc3f7;
+}
+
+/* ================================================================
+   THEME: SNOWY — crisp white, icy blue, cold and clean
+   ================================================================ */
+[data-theme="snowy"] {
+  --t-bg: #f3f6fc;
+  --t-surface: #ffffff;
+  --t-subtle: rgba(60, 120, 200, 0.06);
+  --t-hover: rgba(60, 120, 200, 0.06);
+  --t-border: rgba(40, 80, 150, 0.1);
+  --t-divider: rgba(40, 80, 150, 0.05);
+  --t-text: #1a2a3a;
+  --t-sub: rgba(30, 58, 95, 0.65);
+  --t-muted: rgba(30, 58, 95, 0.4);
+  --t-faint: rgba(30, 58, 95, 0.28);
+  --t-icon: #1565c0;
+  --t-header: #1e3a5f;
+  --t-header-x: #264a72;
+  --t-sidebar: #152a45;
+  --t-accent: #2196f3;
+  --t-accent-x: #1a7fd6;
+  --t-link: #1565c0;
+  --t-link-x: #0d47a1;
+  --t-focus: #42a5f5;
+  --t-primary: #1565c0;
+  --t-primary-x: #1976d2;
+  --t-secondary: rgba(33, 150, 243, 0.1);
+  --t-secondary-x: rgba(33, 150, 243, 0.18);
+  --t-outline-bg: #ffffff;
+  --t-outline-hover: rgba(60, 120, 200, 0.06);
+  --t-outline-border: rgba(40, 80, 150, 0.18);
+  --t-badge-bg: rgba(40, 80, 150, 0.07);
+  --t-badge-text: #1e3a5f;
+  --t-badge-p-bg: rgba(33, 150, 243, 0.15);
+  --t-badge-p-text: #0d47a1;
+  --t-success: #1565c0;
+  --t-danger: #c62828;
+  --t-hero: linear-gradient(180deg, #1e3a5f 0%, #2a60a0 30%, #64b5f6 65%, #e3f2fd 100%);
+  --t-hero-accent: #fdd835;
+}
+
+/* ================================================================
+   THEME: RAINY — moody charcoal, muted gray-blue atmosphere
+   ================================================================ */
+[data-theme="rainy"] {
+  --t-bg: #181c22;
+  --t-surface: #1e232c;
+  --t-subtle: rgba(255, 255, 255, 0.03);
+  --t-hover: rgba(255, 255, 255, 0.05);
+  --t-border: rgba(255, 255, 255, 0.07);
+  --t-divider: rgba(255, 255, 255, 0.04);
+  --t-text: #c0c8d4;
+  --t-sub: #8898aa;
+  --t-muted: #607080;
+  --t-faint: #485868;
+  --t-icon: #5c8ab4;
+  --t-header: #0e1218;
+  --t-header-x: #141a22;
+  --t-sidebar: #0a0e14;
+  --t-accent: #5c8ab4;
+  --t-accent-x: #4a78a0;
+  --t-link: #7ab0d8;
+  --t-link-x: #9ec8e8;
+  --t-focus: #5c8ab4;
+  --t-primary: #37536e;
+  --t-primary-x: #456a88;
+  --t-secondary: rgba(92, 138, 180, 0.12);
+  --t-secondary-x: rgba(92, 138, 180, 0.2);
+  --t-outline-bg: #1e232c;
+  --t-outline-hover: rgba(255, 255, 255, 0.05);
+  --t-outline-border: rgba(255, 255, 255, 0.12);
+  --t-badge-bg: rgba(255, 255, 255, 0.05);
+  --t-badge-text: #8898aa;
+  --t-badge-p-bg: rgba(92, 138, 180, 0.15);
+  --t-badge-p-text: #7ab0d8;
+  --t-success: #5c8ab4;
+  --t-danger: #e57373;
+  --t-hero: linear-gradient(180deg, #0a0e14 0%, #1a2430 30%, #2a3a4e 60%, #3a506a 100%);
+  --t-hero-accent: #7ab0d8;
+}
+
+/* ================================================================
+   THEME: WINDY — fresh teal-mint, dynamic and breezy
+   ================================================================ */
+[data-theme="windy"] {
+  --t-bg: #eef7f5;
+  --t-surface: #ffffff;
+  --t-subtle: rgba(0, 105, 92, 0.05);
+  --t-hover: rgba(0, 137, 123, 0.06);
+  --t-border: rgba(0, 80, 70, 0.1);
+  --t-divider: rgba(0, 80, 70, 0.05);
+  --t-text: #0a1e1e;
+  --t-sub: rgba(10, 45, 40, 0.65);
+  --t-muted: rgba(10, 45, 40, 0.4);
+  --t-faint: rgba(10, 45, 40, 0.28);
+  --t-icon: #00695c;
+  --t-header: #0e3a3a;
+  --t-header-x: #144848;
+  --t-sidebar: #082828;
+  --t-accent: #00897b;
+  --t-accent-x: #007368;
+  --t-link: #00695c;
+  --t-link-x: #004d40;
+  --t-focus: #26a69a;
+  --t-primary: #00695c;
+  --t-primary-x: #00897b;
+  --t-secondary: rgba(0, 137, 123, 0.1);
+  --t-secondary-x: rgba(0, 137, 123, 0.18);
+  --t-outline-bg: #ffffff;
+  --t-outline-hover: rgba(0, 137, 123, 0.06);
+  --t-outline-border: rgba(0, 80, 70, 0.18);
+  --t-badge-bg: rgba(0, 105, 92, 0.06);
+  --t-badge-text: #00695c;
+  --t-badge-p-bg: rgba(0, 137, 123, 0.12);
+  --t-badge-p-text: #004d40;
+  --t-success: #00897b;
+  --t-danger: #c62828;
+  --t-hero: linear-gradient(135deg, #0e3a3a 0%, #006050 30%, #26a69a 65%, #80cbc4 100%);
+  --t-hero-accent: #fdd835;
+}
+
+/* ================================================================
+   Base layer
+   ================================================================ */
+@layer base {
+  body {
+    @apply bg-t-bg text-t-text antialiased;
+    transition: background-color 0.4s ease, color 0.3s ease;
+  }
+}
+
+/* ================================================================
+   Gradient hero utility
+   ================================================================ */
+@layer utilities {
+  .gradient-hero {
+    background: var(--t-hero);
+  }
+}
+
+/* ================================================================
+   Weather effect animations
+   ================================================================ */
+@keyframes snowfall {
+  0% {
+    transform: translateY(-5vh) translateX(0);
+    opacity: 0;
+  }
+  5% {
+    opacity: 1;
+  }
+  50% {
+    transform: translateY(50vh) translateX(15px);
+  }
+  100% {
+    transform: translateY(105vh) translateX(-5px);
+    opacity: 0.6;
+  }
+}
+
+@keyframes rainfall {
+  0% {
+    transform: translateY(-5vh) translateX(0);
+    opacity: 0;
+  }
+  5% {
+    opacity: 0.7;
+  }
+  100% {
+    transform: translateY(105vh) translateX(-20px);
+    opacity: 0.2;
+  }
+}
+
+@keyframes windstreak {
+  0% {
+    transform: translateX(-10vw) scaleX(0.4);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(105vw) scaleX(1);
+    opacity: 0;
+  }
+}
+
+.weather-particle-snow {
+  position: absolute;
+  top: 0;
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 50%;
+  animation: snowfall linear infinite;
+}
+
+.weather-particle-rain {
+  position: absolute;
+  top: 0;
+  background: rgba(160, 190, 220, 0.45);
+  border-radius: 1px;
+  animation: rainfall linear infinite;
+}
+
+.weather-particle-wind {
+  position: absolute;
+  left: 0;
+  background: rgba(0, 137, 123, 0.12);
+  border-radius: 2px;
+  height: 1px !important;
+  animation: windstreak linear infinite;
+}
+
+/* ================================================================
+   MapLibre: simpler fullscreen icons (corner brackets)
+   ================================================================ */
+.maplibregl-ctrl button.maplibregl-ctrl-fullscreen .maplibregl-ctrl-icon {
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='none' stroke='%23333' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='7,3 3,3 3,7'/%3E%3Cpolyline points='13,3 17,3 17,7'/%3E%3Cpolyline points='7,17 3,17 3,13'/%3E%3Cpolyline points='13,17 17,17 17,13'/%3E%3C/svg%3E") !important;
+}
+.maplibregl-ctrl button.maplibregl-ctrl-shrink .maplibregl-ctrl-icon {
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='none' stroke='%23333' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3,7 7,7 7,3'/%3E%3Cpolyline points='17,7 13,7 13,3'/%3E%3Cpolyline points='3,13 7,13 7,17'/%3E%3Cpolyline points='17,13 13,13 13,17'/%3E%3C/svg%3E") !important;
+}
+

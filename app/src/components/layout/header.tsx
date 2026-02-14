@@ -1,0 +1,112 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { cn } from "@/lib/utils";
+import { UserMenu } from "@/components/auth/user-menu";
+import { ThemeSelector } from "@/components/layout/theme-selector";
+import { Bike, Menu, X, Shield } from "lucide-react";
+import { useState } from "react";
+
+const navItems = [
+  { href: "/", label: "홈" },
+  { href: "/courses", label: "코스" },
+];
+
+export function Header() {
+  const pathname = usePathname();
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.roles?.includes("admin");
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  return (
+    <header className="sticky top-0 z-50 border-b border-white/10 bg-t-header text-white">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
+        <Link href="/" className="flex items-center gap-2 font-bold text-lg">
+          <Bike className="h-6 w-6 text-t-accent" />
+          <span className="hidden sm:inline">랜도너 코스</span>
+        </Link>
+
+        {/* Desktop nav */}
+        <nav className="hidden md:flex items-center gap-6">
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                "text-sm font-medium transition-colors",
+                pathname === item.href
+                  ? "text-t-accent"
+                  : "text-white/70 hover:text-white"
+              )}
+            >
+              {item.label}
+            </Link>
+          ))}
+          {isAdmin && (
+            <Link
+              href="/admin"
+              className={cn(
+                "flex items-center gap-1 text-sm font-medium transition-colors",
+                pathname.startsWith("/admin")
+                  ? "text-t-accent"
+                  : "text-white/70 hover:text-white"
+              )}
+            >
+              <Shield className="h-3.5 w-3.5" />
+              관리
+            </Link>
+          )}
+        </nav>
+
+        <div className="flex items-center gap-2">
+          <ThemeSelector />
+          <UserMenu />
+          <button
+            className="md:hidden rounded-md p-2 hover:bg-white/10"
+            onClick={() => setMenuOpen(!menuOpen)}
+          >
+            {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile nav */}
+      {menuOpen && (
+        <nav className="md:hidden border-t border-white/10 bg-t-header-x px-4 py-3 space-y-1">
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={() => setMenuOpen(false)}
+              className={cn(
+                "block rounded-md px-3 py-2 text-sm font-medium",
+                pathname === item.href
+                  ? "bg-white/10 text-t-accent"
+                  : "text-white/70 hover:bg-white/5 hover:text-white"
+              )}
+            >
+              {item.label}
+            </Link>
+          ))}
+          {isAdmin && (
+            <Link
+              href="/admin"
+              onClick={() => setMenuOpen(false)}
+              className={cn(
+                "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium",
+                pathname.startsWith("/admin")
+                  ? "bg-white/10 text-t-accent"
+                  : "text-white/70 hover:bg-white/5 hover:text-white"
+              )}
+            >
+              <Shield className="h-4 w-4" />
+              관리
+            </Link>
+          )}
+        </nav>
+      )}
+    </header>
+  );
+}

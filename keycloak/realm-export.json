@@ -4,6 +4,10 @@
   "registrationAllowed": true,
   "registrationEmailAsUsername": true,
   "loginWithEmailAllowed": true,
+  "loginTheme": "randonneur",
+  "internationalizationEnabled": true,
+  "supportedLocales": ["ko", "en"],
+  "defaultLocale": "ko",
   "roles": {
     "realm": [
       {

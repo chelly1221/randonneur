@@ -33,10 +33,10 @@ export default async function HomePage() {
       {/* Hero */}
       <section className="gradient-hero py-20 text-white">
         <div className="mx-auto max-w-7xl px-4 text-center">
-          <h1 className="mb-4 text-4xl font-bold tracking-tight sm:text-5xl">
-            한국 랜도너
+          <h1 className="mb-4 text-4xl font-bold tracking-tight leading-[1.15] sm:text-5xl">
+            한국 랜도너스
             <br />
-            <span className="text-t-hero-accent">퍼머넌트 코스</span>
+            <span className="mt-1.5 inline-block text-t-hero-accent sm:mt-2">퍼머넌트 코스</span>
           </h1>
           <p className="mx-auto mb-8 max-w-2xl text-lg text-white/70">
             한국 전역의 랜도너링 퍼머넌트 코스를 탐색하고, 경로를 확인하고,

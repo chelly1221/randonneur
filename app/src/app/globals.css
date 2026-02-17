@@ -300,6 +300,15 @@
   .gradient-hero {
     background: var(--t-hero);
   }
+
+  .scrollbar-hidden {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hidden::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 /* ================================================================
@@ -387,4 +396,3 @@
 .maplibregl-ctrl button.maplibregl-ctrl-shrink .maplibregl-ctrl-icon {
   background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='none' stroke='%23333' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3,7 7,7 7,3'/%3E%3Cpolyline points='17,7 13,7 13,3'/%3E%3Cpolyline points='3,13 7,13 7,17'/%3E%3Cpolyline points='17,13 13,13 13,17'/%3E%3C/svg%3E") !important;
 }
-

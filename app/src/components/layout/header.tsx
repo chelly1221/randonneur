@@ -25,7 +25,7 @@ export function Header() {
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
         <Link href="/" className="flex items-center gap-2 font-bold text-lg">
           <Bike className="h-6 w-6 text-t-accent" />
-          <span className="hidden sm:inline">랜도너 코스</span>
+          <span className="hidden sm:inline">3chan</span>
         </Link>
 
         {/* Desktop nav */}

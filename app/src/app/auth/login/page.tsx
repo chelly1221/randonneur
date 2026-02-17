@@ -13,7 +13,7 @@ function LoginForm() {
       <div className="w-full max-w-md rounded-lg border border-white/10 bg-t-surface p-8 shadow-lg">
         <h1 className="mb-2 text-center text-2xl font-bold text-t-text">로그인</h1>
         <p className="mb-6 text-center text-sm text-t-muted">
-          한국 랜도너 퍼머넌트 코스 플랫폼
+          한국 랜도너스 퍼머넌트 코스 플랫폼
         </p>
         <button
           onClick={() => signIn("keycloak", { callbackUrl })}

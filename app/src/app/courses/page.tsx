@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
-import { CourseExplorer } from "@/components/course/course-explorer";
-import { getCourseColor } from "@/lib/course-colors";
+import { CourseExplorer } from "@/components/course/course-explorer-v2";
+import { getCourseColor, getPastelCourseColor } from "@/lib/course-colors";
 
 export const dynamic = "force-dynamic";
 
@@ -62,6 +62,7 @@ export default async function CoursesPage() {
             courseNumber: r.course_number,
             archived: r.archived,
             color: getCourseColor(r.id),
+            pastelColor: getPastelCourseColor(r.id),
           },
           geometry,
         };

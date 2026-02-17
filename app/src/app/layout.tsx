@@ -6,7 +6,7 @@ import { Header } from "@/components/layout/header";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "한국 랜도너 퍼머넌트 코스",
+  title: "한국 랜도너스 퍼머넌트 코스",
   description:
     "Korea Randonneuring Permanent Courses — 한국 랜도너링 퍼머넌트 코스 플랫폼",
 };

@@ -26,15 +26,18 @@ if [ ! -f "${ARCHIVE}" ]; then
   exit 1
 fi
 
-# Load .env for database credentials
+# Load .env for database credentials (safe parsing — handles special chars like &&)
 if [ ! -f "${PROJECT_DIR}/.env" ]; then
   echo "Error: .env file not found at ${PROJECT_DIR}/.env"
   echo "Copy .env.example to .env and configure it before importing."
   exit 1
 fi
-set -a
-source "${PROJECT_DIR}/.env"
-set +a
+while IFS='=' read -r key value; do
+  # Skip comments and empty lines
+  [[ -z "$key" || "$key" =~ ^[[:space:]]*# ]] && continue
+  key=$(echo "$key" | xargs)
+  export "$key"="$value"
+done < "${PROJECT_DIR}/.env"
 
 echo "=== Randonneur Data Import ==="
 echo "Archive: ${ARCHIVE}"

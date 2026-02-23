@@ -184,7 +184,9 @@ randonneur/
     ├── seed.sh                       # Database seeding
     ├── import-courses.ts             # Import from structured data
     ├── import-legacy-courses.ts      # Scrape legacy site
-    └── download-osm.sh              # Download Korea OSM data
+    ├── download-osm.sh              # Download Korea OSM data
+    ├── migrate-export.sh            # Export data for migration
+    └── migrate-import.sh            # Import data on new machine
 ```
 
 ## Docker Compose Conventions
@@ -330,6 +332,13 @@ docker compose exec app npx --package=prisma@6 prisma migrate deploy
 
 # Generate Prisma client
 docker compose exec app npx --package=prisma@6 prisma generate
+
+# Export data for migration to another machine
+./scripts/migrate-export.sh
+# -> Creates backup-YYYYMMDD-HHMMSS.tar.gz
+
+# Import data on new machine (services must be running)
+./scripts/migrate-import.sh backup-YYYYMMDD-HHMMSS.tar.gz
 ```
 
 ## Environment Variables (.env)

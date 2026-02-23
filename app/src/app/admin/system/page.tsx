@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { RefreshCw, Download, Archive } from "lucide-react";
+import { RefreshCw, Download, Archive, Plus } from "lucide-react";
 
 interface ServiceStatus {
   name: string;
@@ -35,6 +35,8 @@ export default function SystemStatusPage() {
   const [loading, setLoading] = useState(false);
   const [backups, setBackups] = useState<BackupFile[]>([]);
   const [backupsLoading, setBackupsLoading] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   function fetchHealth() {
     setLoading(true);
@@ -52,6 +54,25 @@ export default function SystemStatusPage() {
       .then((data) => setBackups(data.backups ?? []))
       .catch(() => setBackups([]))
       .finally(() => setBackupsLoading(false));
+  }
+
+  async function createBackup() {
+    if (!confirm("백업을 생성하시겠습니까? 수 분이 소요될 수 있습니다.")) return;
+    setCreating(true);
+    setCreateError(null);
+    try {
+      const res = await fetch("/api/admin/backups", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        setCreateError(data.error ?? "백업 생성 실패");
+      } else {
+        fetchBackups();
+      }
+    } catch {
+      setCreateError("백업 생성 중 오류가 발생했습니다.");
+    } finally {
+      setCreating(false);
+    }
   }
 
   useEffect(() => {
@@ -102,15 +123,31 @@ export default function SystemStatusPage() {
             <Archive className="h-5 w-5" />
             백업 관리
           </h2>
-          <Button variant="outline" size="sm" onClick={fetchBackups} disabled={backupsLoading}>
-            <RefreshCw className={`mr-1 h-4 w-4 ${backupsLoading ? "animate-spin" : ""}`} />
-            새로고침
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={fetchBackups} disabled={backupsLoading}>
+              <RefreshCw className={`mr-1 h-4 w-4 ${backupsLoading ? "animate-spin" : ""}`} />
+              새로고침
+            </Button>
+            <Button size="sm" onClick={createBackup} disabled={creating}>
+              {creating ? (
+                <RefreshCw className="mr-1 h-4 w-4 animate-spin" />
+              ) : (
+                <Plus className="mr-1 h-4 w-4" />
+              )}
+              {creating ? "생성 중..." : "백업 생성"}
+            </Button>
+          </div>
         </div>
 
         <p className="mb-4 text-sm text-t-muted">
-          <code>scripts/migrate-export.sh</code>로 생성한 백업 아카이브를 관리합니다.
+          DB(PostgreSQL, Keycloak)와 파일(MinIO)을 포함한 전체 백업을 생성하고 다운로드합니다.
         </p>
+
+        {createError && (
+          <Card className="mb-4 border-red-300 bg-red-50">
+            <CardContent className="text-sm text-red-700">{createError}</CardContent>
+          </Card>
+        )}
 
         {backupsLoading && backups.length === 0 ? (
           <Card>
@@ -121,7 +158,7 @@ export default function SystemStatusPage() {
         ) : backups.length === 0 ? (
           <Card>
             <CardContent className="text-center text-t-faint">
-              백업 파일이 없습니다. <code>scripts/migrate-export.sh</code>를 실행하여 백업을 생성하세요.
+              백업 파일이 없습니다. 위의 &quot;백업 생성&quot; 버튼을 클릭하여 백업을 생성하세요.
             </CardContent>
           </Card>
         ) : (

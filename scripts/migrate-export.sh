@@ -9,7 +9,9 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 BACKUP_NAME="backup-${TIMESTAMP}"
-BACKUP_DIR="${PROJECT_DIR}/${BACKUP_NAME}"
+BACKUPS_DIR="${PROJECT_DIR}/backups"
+mkdir -p "${BACKUPS_DIR}"
+BACKUP_DIR="${BACKUPS_DIR}/${BACKUP_NAME}"
 
 # Load .env for database credentials (safe parsing — handles special chars like &&)
 if [ ! -f "${PROJECT_DIR}/.env" ]; then
@@ -93,13 +95,13 @@ echo "  -> env.bak"
 
 # --- 5. Create tar.gz archive ---
 echo "[5/5] Creating archive..."
-tar -czf "${PROJECT_DIR}/${BACKUP_NAME}.tar.gz" -C "${PROJECT_DIR}" "${BACKUP_NAME}"
+tar -czf "${BACKUPS_DIR}/${BACKUP_NAME}.tar.gz" -C "${BACKUPS_DIR}" "${BACKUP_NAME}"
 rm -rf "${BACKUP_DIR}"
 
-ARCHIVE_SIZE=$(du -h "${PROJECT_DIR}/${BACKUP_NAME}.tar.gz" | cut -f1)
+ARCHIVE_SIZE=$(du -h "${BACKUPS_DIR}/${BACKUP_NAME}.tar.gz" | cut -f1)
 echo ""
 echo "=== Export complete ==="
-echo "Archive: ${PROJECT_DIR}/${BACKUP_NAME}.tar.gz (${ARCHIVE_SIZE})"
+echo "Archive: ${BACKUPS_DIR}/${BACKUP_NAME}.tar.gz (${ARCHIVE_SIZE})"
 echo ""
 echo "Transfer this file to the new machine and run:"
-echo "  ./scripts/migrate-import.sh ${BACKUP_NAME}.tar.gz"
+echo "  ./scripts/migrate-import.sh backups/${BACKUP_NAME}.tar.gz"

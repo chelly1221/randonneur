@@ -44,6 +44,7 @@ services:
       - ./app:/app
       - app_node_modules:/app/node_modules
       - app_next:/app/.next
+      - ./backups:/backups:ro
     ports:
       - "3100:3000"
     depends_on:

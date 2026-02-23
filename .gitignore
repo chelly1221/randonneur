@@ -48,6 +48,9 @@ yarn-error.log*
 # TypeScript build info
 *.tsbuildinfo
 
+# Backups
+/backups/
+
 # Misc
 *.tgz
 *.log

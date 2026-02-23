@@ -10,6 +10,8 @@ interface RangeSliderProps {
   step?: number;
   formatLabel?: (value: number) => string;
   className?: string;
+  tone?: "distance" | "elevation";
+  label?: string;
 }
 
 export function RangeSlider({
@@ -20,6 +22,8 @@ export function RangeSlider({
   step = 1,
   formatLabel = (v) => String(v),
   className,
+  tone = "distance",
+  label,
 }: RangeSliderProps) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState<"min" | "max" | null>(null);
@@ -86,34 +90,50 @@ export function RangeSlider({
 
   const leftPct = getPercent(value[0]);
   const rightPct = getPercent(value[1]);
+  const activeColorClass =
+    tone === "elevation" ? "bg-t-accent" : "bg-sky-orange";
+  const thumbBorderClass =
+    tone === "elevation" ? "border-t-accent" : "border-sky-orange";
+  const bubbleTextClass =
+    tone === "elevation" ? "text-t-accent" : "text-sky-orange";
 
   return (
-    <div className={className}>
-      <div className="flex items-center justify-between text-xs text-t-muted mb-1">
-        <span>{formatLabel(value[0])}</span>
-        <span>{formatLabel(value[1])}</span>
-      </div>
+    <div className={`px-6 ${className ?? ""}`}>
       <div
         ref={trackRef}
-        className="relative h-5 w-full touch-none select-none"
+        className="relative h-14 w-full touch-none select-none"
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
       >
         {/* Track background */}
-        <div className="absolute top-1/2 h-1 w-full -translate-y-1/2 rounded-full bg-t-border" />
+        <div className="absolute top-1/2 h-4 w-full -translate-y-1/2 rounded-full bg-t-border/70" />
 
         {/* Active range */}
         <div
-          className="absolute top-1/2 h-1 -translate-y-1/2 rounded-full bg-sky-orange"
+          className={`absolute top-1/2 h-4 -translate-y-1/2 rounded-full ${activeColorClass}`}
           style={{
             left: `${leftPct}%`,
             width: `${rightPct - leftPct}%`,
           }}
         />
 
+        {label && (
+          <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[11px] font-bold text-white/95 drop-shadow-sm">
+            {label}
+          </div>
+        )}
+
+        {/* Min value bubble */}
+        <div
+          className={`pointer-events-none absolute -top-2 -translate-x-1/2 rounded-md border border-t-border bg-t-surface px-1.5 py-0.5 text-[10px] font-semibold shadow-sm ${bubbleTextClass}`}
+          style={{ left: `${leftPct}%` }}
+        >
+          {formatLabel(value[0])}
+        </div>
+
         {/* Min thumb */}
         <div
-          className="absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 cursor-grab rounded-full border-2 border-sky-orange bg-white shadow-sm active:cursor-grabbing"
+          className={`absolute top-1/2 h-6 w-6 -translate-x-1/2 -translate-y-1/2 cursor-grab rounded-full border-2 ${thumbBorderClass} bg-white shadow-md transition-transform active:cursor-grabbing active:scale-110`}
           style={{ left: `${leftPct}%` }}
           onPointerDown={handlePointerDown("min")}
           role="slider"
@@ -123,9 +143,17 @@ export function RangeSlider({
           tabIndex={0}
         />
 
+        {/* Max value bubble */}
+        <div
+          className={`pointer-events-none absolute -top-2 -translate-x-1/2 rounded-md border border-t-border bg-t-surface px-1.5 py-0.5 text-[10px] font-semibold shadow-sm ${bubbleTextClass}`}
+          style={{ left: `${rightPct}%` }}
+        >
+          {formatLabel(value[1])}
+        </div>
+
         {/* Max thumb */}
         <div
-          className="absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 cursor-grab rounded-full border-2 border-sky-orange bg-white shadow-sm active:cursor-grabbing"
+          className={`absolute top-1/2 h-6 w-6 -translate-x-1/2 -translate-y-1/2 cursor-grab rounded-full border-2 ${thumbBorderClass} bg-white shadow-md transition-transform active:cursor-grabbing active:scale-110`}
           style={{ left: `${rightPct}%` }}
           onPointerDown={handlePointerDown("max")}
           role="slider"

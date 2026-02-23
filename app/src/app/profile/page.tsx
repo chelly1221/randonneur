@@ -19,7 +19,7 @@ interface CompletionData {
       name: string;
       distanceKm: number;
       elevationM: number;
-      region: string;
+      region: string | null;
     };
   }[];
   stats: {

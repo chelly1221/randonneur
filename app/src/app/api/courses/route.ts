@@ -4,6 +4,21 @@ import { auth } from "@/lib/auth";
 import { DISTANCE_RANGES } from "@/types";
 import { Prisma } from "@prisma/client";
 
+const SR_CATEGORY = "sr-600";
+const SR_TIME_LIMIT = "60시간";
+
+function normalizeCategory(value: unknown): string[] {
+  if (Array.isArray(value)) return value.filter((v): v is string => typeof v === "string");
+  if (typeof value === "string" && value.trim()) return [value];
+  return [];
+}
+
+function isSrCourse(category: string[], courseNumber?: string | null): boolean {
+  if (category.includes(SR_CATEGORY)) return true;
+  if (typeof courseNumber === "string" && /^SR-/i.test(courseNumber)) return true;
+  return false;
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const region = searchParams.get("region");
@@ -74,19 +89,30 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
+  const category = normalizeCategory(body.category);
+  const estimatedTime = isSrCourse(category, body.courseNumber)
+    ? SR_TIME_LIMIT
+    : body.estimatedTime ?? null;
+
   const course = await prisma.course.create({
     data: {
+      courseNumber: body.courseNumber ?? null,
       name: body.name,
       distanceKm: body.distanceKm,
       elevationM: body.elevationM,
-      estimatedTime: body.estimatedTime ?? null,
+      estimatedTime,
       startLocation: body.startLocation,
       endLocation: body.endLocation,
       region: body.region,
-      category: body.category ?? [],
+      category,
       tags: body.tags ?? [],
       description: body.description ?? null,
+      officialPageUrl:
+        typeof body.officialPageUrl === "string" && body.officialPageUrl.trim()
+          ? body.officialPageUrl.trim()
+          : null,
       gpxFileKey: body.gpxFileKey ?? null,
+      elevationProfile: body.elevationProfile ?? undefined,
     },
   });
 

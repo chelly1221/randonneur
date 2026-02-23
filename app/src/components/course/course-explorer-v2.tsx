@@ -5,8 +5,8 @@ import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { Badge } from "@/components/ui/badge";
 import { RangeSlider } from "@/components/ui/range-slider";
+import { SeriesIcon } from "@/components/series-icon";
 import { REGIONS, CATEGORIES } from "@/types";
-import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -54,7 +54,7 @@ interface CourseData {
   name: string;
   distanceKm: number;
   elevationM: number;
-  region: string;
+  region: string | null;
   category: string[];
   startLocation: string;
   endLocation: string;
@@ -118,6 +118,9 @@ export function CourseExplorer({
   const [search, setSearch] = useState("");
   const [region, setRegion] = useState("");
   const [category, setCategory] = useState("");
+  const [sortBy, setSortBy] = useState<"number" | "distance" | "elevation" | "name">("number");
+  const [regionMenuOpen, setRegionMenuOpen] = useState(false);
+  const [seriesMenuOpen, setSeriesMenuOpen] = useState(false);
   const [distFilter, setDistFilter] = useState<[number, number]>(distanceRange);
   const [elevFilter, setElevFilter] = useState<[number, number]>(elevationRange);
 
@@ -168,12 +171,28 @@ export function CourseExplorer({
     };
 
     return [...filtered].sort((a, b) => {
+      if (sortBy === "distance") {
+        if (a.distanceKm !== b.distanceKm) return a.distanceKm - b.distanceKm;
+        return a.name.localeCompare(b.name, "ko");
+      }
+      if (sortBy === "elevation") {
+        if (a.elevationM !== b.elevationM) return a.elevationM - b.elevationM;
+        return a.name.localeCompare(b.name, "ko");
+      }
+      if (sortBy === "name") {
+        return a.name.localeCompare(b.name, "ko");
+      }
+
+      const aIsSr = !!a.courseNumber && /^SR-/i.test(a.courseNumber);
+      const bIsSr = !!b.courseNumber && /^SR-/i.test(b.courseNumber);
+      if (aIsSr !== bIsSr) return aIsSr ? 1 : -1;
+
       const aNum = parseCourseNumber(a.courseNumber);
       const bNum = parseCourseNumber(b.courseNumber);
       if (aNum !== bNum) return aNum - bNum;
       return a.name.localeCompare(b.name, "ko");
     });
-  }, [filtered]);
+  }, [filtered, sortBy]);
 
   const filteredIdKey = filtered.map((c) => c.id).join(",");
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -216,6 +235,13 @@ export function CourseExplorer({
     };
     document.addEventListener("mousedown", onDocClick);
     return () => document.removeEventListener("mousedown", onDocClick);
+  }, [searchExpanded]);
+
+  useEffect(() => {
+    if (!searchExpanded) {
+      setRegionMenuOpen(false);
+      setSeriesMenuOpen(false);
+    }
   }, [searchExpanded]);
 
   // Resize map when exiting detail mode (filter bar expands back)
@@ -272,6 +298,7 @@ export function CourseExplorer({
         if (!data) return null;
         const normalized: DetailData = {
           elevations: data.elevations ?? [],
+          elevationBands: data.elevationBands ?? [],
           geojson: data.geojson ?? null,
           bounds: data.bounds ?? null,
           checkpoints: data.checkpoints ?? [],
@@ -733,7 +760,7 @@ export function CourseExplorer({
 
         const el = document.createElement("div");
         el.style.cssText =
-          "width:20px;height:20px;border-radius:50%;background:#facc15;border:2px solid #111;box-shadow:0 1px 4px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:bold;color:#111;";
+          "width:20px;height:20px;border-radius:50%;background:#facc15;border:2px solid #111;box-shadow:0 1px 4px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:bold;color:#111;cursor:pointer;";
         el.textContent = String(i + 1);
 
         const marker = new maplibregl.Marker({ element: el })
@@ -820,27 +847,91 @@ export function CourseExplorer({
                   <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-20 rounded-xl border border-t-border bg-t-surface p-3 shadow-lg">
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                       <div>
-                        <p className="mb-1 text-[11px] text-t-muted">지역</p>
-                        <Select value={region} onChange={(e) => setRegion(e.target.value)}>
-                          <option value="">모든 지역</option>
-                          {REGIONS.map((r) => (
-                            <option key={r} value={r}>{r}</option>
-                          ))}
-                        </Select>
+                        <div className="relative">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRegionMenuOpen((prev) => !prev);
+                              setSeriesMenuOpen(false);
+                            }}
+                            className="w-full rounded-md border border-t-border bg-t-surface px-3 py-2 text-left text-sm text-t-text focus:border-t-focus focus:outline-none focus:ring-1 focus:ring-t-focus"
+                          >
+                            {region || "모든 지역"}
+                          </button>
+                          {regionMenuOpen && (
+                            <div className="absolute z-30 mt-1 w-full rounded-md border border-t-border bg-t-surface py-1 shadow-lg">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setRegion("");
+                                  setRegionMenuOpen(false);
+                                }}
+                                className="flex w-full items-center px-3 py-1.5 text-left text-sm text-t-text hover:bg-t-hover"
+                              >
+                                모든 지역
+                              </button>
+                              {REGIONS.map((r) => (
+                                <button
+                                  key={r}
+                                  type="button"
+                                  onClick={() => {
+                                    setRegion(r);
+                                    setRegionMenuOpen(false);
+                                  }}
+                                  className="flex w-full items-center px-3 py-1.5 text-left text-sm text-t-text hover:bg-t-hover"
+                                >
+                                  {r}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
                       <div>
-                        <p className="mb-1 text-[11px] text-t-muted">시리즈</p>
-                        <Select value={category} onChange={(e) => setCategory(e.target.value)}>
-                          <option value="">모든 시리즈</option>
-                          {CATEGORIES.map((c) => (
-                            <option key={c.value} value={c.value}>
-                              {c.emoji} {c.label}
-                            </option>
-                          ))}
-                        </Select>
+                        <div className="relative">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSeriesMenuOpen((prev) => !prev);
+                              setRegionMenuOpen(false);
+                            }}
+                            className="w-full rounded-md border border-t-border bg-t-surface px-3 py-2 text-left text-sm text-t-text focus:border-t-focus focus:outline-none focus:ring-1 focus:ring-t-focus"
+                          >
+                            {category
+                              ? CATEGORIES.find((c) => c.value === category)?.label ?? "모든 시리즈"
+                              : "모든 시리즈"}
+                          </button>
+                          {seriesMenuOpen && (
+                            <div className="absolute z-30 mt-1 w-full rounded-md border border-t-border bg-t-surface py-1 shadow-lg">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setCategory("");
+                                  setSeriesMenuOpen(false);
+                                }}
+                                className="flex w-full items-center px-3 py-1.5 text-left text-sm text-t-text hover:bg-t-hover"
+                              >
+                                모든 시리즈
+                              </button>
+                              {CATEGORIES.map((c) => (
+                                <button
+                                  key={c.value}
+                                  type="button"
+                                  onClick={() => {
+                                    setCategory(c.value);
+                                    setSeriesMenuOpen(false);
+                                  }}
+                                  className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-t-text hover:bg-t-hover"
+                                >
+                                  <SeriesIcon value={c.value} emoji={c.emoji} className="h-4 w-4" />
+                                  {c.label}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
                       <div>
-                        <p className="mb-1 text-[11px] text-t-muted">거리</p>
                         <RangeSlider
                           min={distanceRange[0]}
                           max={distanceRange[1]}
@@ -848,10 +939,11 @@ export function CourseExplorer({
                           onChange={setDistFilter}
                           step={10}
                           formatLabel={(v) => `${v}km`}
+                          tone="distance"
+                          label="거리"
                         />
                       </div>
                       <div>
-                        <p className="mb-1 text-[11px] text-t-muted">고도</p>
                         <RangeSlider
                           min={elevationRange[0]}
                           max={elevationRange[1]}
@@ -859,6 +951,8 @@ export function CourseExplorer({
                           onChange={setElevFilter}
                           step={100}
                           formatLabel={(v) => `${v}m`}
+                          tone="elevation"
+                          label="고도"
                         />
                       </div>
                     </div>
@@ -968,10 +1062,44 @@ export function CourseExplorer({
                 검색 결과가 없습니다.
               </div>
             ) : (
-              <div className="divide-y divide-t-divider">
+              <div>
+                <div className="border-b border-t-border bg-t-surface px-3 py-2">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {[
+                      { value: "number", label: "PT 번호순" },
+                      { value: "distance", label: "거리순" },
+                      { value: "elevation", label: "고도순" },
+                      { value: "name", label: "가나다순" },
+                    ].map((opt) => {
+                      const active = sortBy === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() =>
+                            setSortBy(
+                              opt.value as "number" | "distance" | "elevation" | "name"
+                            )
+                          }
+                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors ${
+                            active
+                              ? "bg-t-badge-p-bg text-t-badge-p-text"
+                              : "bg-t-badge-bg text-t-badge-text hover:bg-t-hover"
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="divide-y divide-t-divider">
                 {filteredSorted.map((course) => {
                   const isSelected = course.id === selectedId;
                   const isHovered = course.id === hoveredId;
+                  const series = CATEGORIES.filter((c) =>
+                    course.category.includes(c.value)
+                  );
 
                   return (
                     <div
@@ -1004,15 +1132,22 @@ export function CourseExplorer({
                             )}
                           </span>
                         </div>
-                        <Badge variant="primary" className="shrink-0 text-[10px]">
-                          {course.region}
-                        </Badge>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {series.map((s) => (
+                            <Badge key={s.value} className="text-[10px]">
+                              {s.label}
+                            </Badge>
+                          ))}
+                          <Badge variant="primary" className="text-[10px]">
+                            {course.region}
+                          </Badge>
+                        </div>
                       </div>
 
                       <div className="mt-1 flex items-center gap-3 text-xs text-t-sub">
                         <span className="flex items-center gap-0.5">
                           <ArrowRight className="h-3 w-3" />
-                          {course.distanceKm} km
+                          {Math.round(course.distanceKm)} km
                         </span>
                         <span className="flex items-center gap-0.5">
                           <Mountain className="h-3 w-3" />
@@ -1031,23 +1166,25 @@ export function CourseExplorer({
                         {course.gpxFileKey && (
                           <a
                             href={`/api/courses/${course.id}/gpx`}
-                            className="ml-auto shrink-0 text-t-accent hover:text-t-accent-x"
+                            className="ml-auto shrink-0 inline-flex items-center gap-1 text-t-accent hover:text-t-accent-x"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <Download className="h-3 w-3" />
+                            <span className="text-[10px] font-medium">GPX</span>
                           </a>
                         )}
                       </div>
                     </div>
                   );
                 })}
+                </div>
               </div>
             )}
           </div>
 
           {/* Inline detail — flow on mobile, crossfade on desktop */}
           <div
-            className={`shrink-0 overflow-visible lg:absolute lg:inset-0 lg:transition-opacity lg:duration-200 lg:ease-in-out ${
+            className={`shrink-0 overflow-visible lg:absolute lg:inset-0 lg:overflow-y-auto lg:transition-opacity lg:duration-200 lg:ease-in-out ${
               selectedId && selectedCourse
                 ? "lg:opacity-100"
                 : "hidden lg:block lg:opacity-0 lg:pointer-events-none"

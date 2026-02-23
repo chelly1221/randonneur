@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 
+const SR_CATEGORY = "sr-600";
+const SR_TIME_LIMIT = "60시간";
+
 interface CourseImportRow {
   name: string;
   distanceKm: number;
@@ -36,16 +39,20 @@ export async function POST(request: NextRequest) {
   for (let i = 0; i < courses.length; i++) {
     const row = courses[i];
     try {
+      const category = row.category ? [row.category] : [];
+      const estimatedTime = category.includes(SR_CATEGORY)
+        ? SR_TIME_LIMIT
+        : row.estimatedTime ?? null;
       const course = await prisma.course.create({
         data: {
           name: row.name,
           distanceKm: row.distanceKm,
           elevationM: row.elevationM,
-          estimatedTime: row.estimatedTime ?? null,
+          estimatedTime,
           startLocation: row.startLocation,
           endLocation: row.endLocation,
           region: row.region,
-          category: row.category ? [row.category] : [],
+          category,
           tags: row.tags ?? [],
           description: row.description ?? null,
         },

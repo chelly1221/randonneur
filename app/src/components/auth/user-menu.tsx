@@ -10,6 +10,12 @@ export function UserMenu() {
   const { data: session } = useSession();
   const [open, setOpen] = useState(false);
 
+  const handleLogout = async () => {
+    setOpen(false);
+    await signOut({ redirect: false });
+    window.location.href = "/api/auth/keycloak-logout";
+  };
+
   if (!session) {
     return <LoginButton />;
   }
@@ -51,7 +57,7 @@ export function UserMenu() {
               </Link>
             )}
             <button
-              onClick={() => signOut()}
+              onClick={handleLogout}
               className="flex w-full items-center gap-2 px-4 py-2 text-sm hover:bg-t-hover"
             >
               <LogOut className="h-4 w-4" />

@@ -15,7 +15,7 @@ interface Stats {
     id: string;
     name: string;
     distanceKm: number;
-    region: string;
+    region: string | null;
     createdAt: string;
   }[];
 }

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { SeriesIcon } from "@/components/series-icon";
 import { REGIONS, CATEGORIES } from "@/types";
 import { Loader2 } from "lucide-react";
 
@@ -38,6 +39,7 @@ export function CourseForm({ initialData, mode }: CourseFormProps) {
     distance: number;
     elevation: number;
     geojson: unknown;
+    elevationProfile: unknown;
   } | null>(null);
 
   const [form, setForm] = useState<CourseFormData>(
@@ -80,6 +82,7 @@ export function CourseForm({ initialData, mode }: CourseFormProps) {
     try {
       let gpxFileKey = form.gpxFileKey;
       let geojsonData = null;
+      let elevationProfileData = null;
 
       if (gpxFile) {
         const uploadForm = new FormData();
@@ -98,6 +101,7 @@ export function CourseForm({ initialData, mode }: CourseFormProps) {
           if (uploadData.elevation)
             setField("elevationM", uploadData.elevation);
           if (uploadData.geojson) geojsonData = uploadData.geojson;
+          if (uploadData.elevationProfile) elevationProfileData = uploadData.elevationProfile;
         }
       }
 
@@ -105,6 +109,7 @@ export function CourseForm({ initialData, mode }: CourseFormProps) {
         ...form,
         gpxFileKey,
         ...(geojsonData ? { geojson: geojsonData } : {}),
+        ...(elevationProfileData ? { elevationProfile: elevationProfileData } : {}),
       };
 
       const url =
@@ -167,12 +172,12 @@ export function CourseForm({ initialData, mode }: CourseFormProps) {
 
       <div>
         <label className="block text-sm font-medium text-t-text mb-1">
-          예상 시간
+          제한 시간
         </label>
         <Input
           value={form.estimatedTime}
           onChange={(e) => setField("estimatedTime", e.target.value)}
-          placeholder="예: 12시간"
+          placeholder="예: 60시간"
         />
       </div>
 
@@ -236,7 +241,8 @@ export function CourseForm({ initialData, mode }: CourseFormProps) {
                   }}
                   className="rounded accent-t-primary"
                 />
-                {c.emoji} {c.label}
+                <SeriesIcon value={c.value} emoji={c.emoji} />
+                {c.label}
               </label>
             ))}
           </div>

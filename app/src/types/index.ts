@@ -1,16 +1,20 @@
 export const REGIONS = [
-  "서울",
   "경기",
-  "충청",
-  "전라",
-  "경상",
   "강원",
+  "충북",
+  "충남",
+  "경북",
+  "경남",
+  "전북",
+  "전남",
   "제주",
 ] as const;
 
 export type Region = (typeof REGIONS)[number];
 
 export const CATEGORIES = [
+  { value: "sr-600", label: "SR-600", emoji: "🏁" },
+  { value: "dongbu-60-pass", label: "동부 60고개", emoji: "⛰️" },
   { value: "adventure", label: "어드벤처", emoji: "⚡" },
   { value: "baekdudaegan", label: "백두대간", emoji: "🏔️" },
   { value: "strawberry", label: "딸기", emoji: "🍓" },
@@ -34,7 +38,7 @@ export interface CourseWithGeojson {
   estimatedTime: string | null;
   startLocation: string;
   endLocation: string;
-  region: string;
+  region: string | null;
   category: string[];
   tags: string[];
   description: string | null;

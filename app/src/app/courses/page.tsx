@@ -9,7 +9,7 @@ interface CourseRow {
   name: string;
   distance_km: number;
   elevation_m: number;
-  region: string;
+  region: string | null;
   category: string[];
   start_location: string;
   end_location: string;

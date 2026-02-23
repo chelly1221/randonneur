@@ -28,7 +28,7 @@ export default async function EditCoursePage({ params }: Props) {
           estimatedTime: course.estimatedTime ?? "",
           startLocation: course.startLocation,
           endLocation: course.endLocation,
-          region: course.region,
+          region: course.region ?? "",
           category: course.category ?? [],
           tags: course.tags,
           description: course.description ?? "",

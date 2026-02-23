@@ -18,14 +18,16 @@ model Course {
   estimatedTime String?  @map("estimated_time")
   startLocation String   @map("start_location")
   endLocation   String   @map("end_location")
-  region        String
+  region        String?
   category      String[] @default([])
   tags          String[] @default([])
   description   String?
   designer      String?
   gpxFileKey    String?  @map("gpx_file_key")
+  officialPageUrl String? @map("official_page_url")
   archived      Boolean  @default(false)
   geom          Unsupported("geometry(LineString, 4326)")?
+  elevationProfile Json? @map("elevation_profile") @db.JsonB
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 

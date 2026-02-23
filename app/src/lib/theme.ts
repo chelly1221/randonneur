@@ -27,8 +27,11 @@ export const THEMES: ThemeMeta[] = [
 export function getAutoTheme(): ThemeId {
   const hour = new Date().getHours();
   if (hour >= 5 && hour < 7) return "dawn";
-  if (hour >= 7 && hour < 17) return "day";
+  if (hour >= 7 && hour < 11) return "day";
+  if (hour >= 11 && hour < 14) return "windy";
+  if (hour >= 14 && hour < 17) return "rainy";
   if (hour >= 17 && hour < 19) return "sunset";
+  if (hour >= 19 && hour < 21) return "snowy";
   return "night";
 }
 

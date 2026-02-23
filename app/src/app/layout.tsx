@@ -9,6 +9,11 @@ export const metadata: Metadata = {
   title: "한국 랜도너스 퍼머넌트 코스",
   description:
     "Korea Randonneuring Permanent Courses — 한국 랜도너링 퍼머넌트 코스 플랫폼",
+  icons: {
+    icon: "/icon.svg",
+    shortcut: "/icon.svg",
+    apple: "/icon.svg",
+  },
 };
 
 export default function RootLayout({

@@ -83,26 +83,10 @@ function haversine(lat1: number, lon1: number, lat2: number, lon2: number): numb
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-// --- Region Detection ---
-const REGION_KEYWORDS: Record<string, string[]> = {
-  서울: ["서울", "반포", "잠실", "한강", "광나루", "여의도", "강남", "영등포", "도봉", "북한산", "관악"],
-  경기: ["경기", "수원", "인천", "파주", "양평", "가평", "이천", "용인", "화성", "남양주", "포천", "연천", "김포", "고양", "동두천", "안성", "평택", "양주", "의정부", "시흥", "안산"],
-  충청: ["충청", "대전", "세종", "공주", "천안", "청주", "충주", "보은", "논산", "부여", "서산", "태안", "당진", "제천", "단양", "홍성", "예산", "아산", "괴산", "옥천", "영동"],
-  전라: ["전라", "광주", "전주", "목포", "여수", "순천", "남원", "군산", "익산", "정읍", "무주", "진안", "장수", "담양", "곡성", "영광", "함평", "보성", "고흥", "해남", "완도", "진도", "장흥", "섬진강", "구례"],
-  경상: ["경상", "부산", "대구", "울산", "경주", "포항", "김해", "창원", "마산", "진주", "통영", "거제", "사천", "밀양", "양산", "김천", "안동", "영주", "상주", "구미", "영천", "경산", "칠곡", "왜관", "합천", "산청", "하동", "고령", "성주", "의성", "봉화", "영덕", "영양", "울진", "울릉", "거창", "함양", "남해"],
-  강원: ["강원", "춘천", "원주", "강릉", "속초", "동해", "삼척", "태백", "정선", "평창", "영월", "횡성", "홍천", "인제", "고성", "양양"],
-  제주: ["제주", "서귀포", "한라산"],
-};
-
-function detectRegion(name: string, start: string, end: string): string {
-  const text = `${name} ${start} ${end}`;
-  for (const [region, keywords] of Object.entries(REGION_KEYWORDS)) {
-    for (const kw of keywords) {
-      if (text.includes(kw)) return region;
-    }
-  }
-  return "경기"; // default
-}
+// --- Region Mapping (manual only; no auto-detection) ---
+// Fill this map explicitly before import.
+// Allowed values: 경기, 강원, 충북, 충남, 경북, 경남, 전북, 전남, 제주
+const MANUAL_REGION_BY_COURSE: Record<string, string> = {};
 
 // --- HTML Parsing ---
 interface ParsedCourse {
@@ -297,8 +281,14 @@ async function main() {
       const coordinates = points.map((p) => [p.lon, p.lat]);
       const geojson = { type: "LineString", coordinates };
 
-      // Detect region
-      const region = detectRegion(entry.name, entry.startLocation, entry.endLocation);
+      // Region must be specified manually (no auto assignment).
+      const region = MANUAL_REGION_BY_COURSE[entry.courseNumber];
+      if (!region) {
+        console.log(`  FAIL ${label} - missing manual region mapping`);
+        failed++;
+        await sleep(DELAY_MS);
+        continue;
+      }
 
       // Estimate time if not available
       let estimatedTime = entry.estimatedTime;

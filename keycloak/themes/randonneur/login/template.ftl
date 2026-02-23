@@ -38,6 +38,90 @@
         </script>
         <script type="module" src="${url.resourcesPath}/js/authChecker.js"></script>
     </#if>
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        var pageLang = (document.documentElement.lang || "").toLowerCase();
+        if (pageLang.indexOf("ko") === 0) {
+          var googleLabel = document.querySelector("#social-google .kc-social-provider-name");
+          if (googleLabel) {
+            googleLabel.textContent = "구글";
+          }
+        }
+
+        var registerForm = document.getElementById("kc-register-form");
+        if (!registerForm) return;
+
+        registerForm.classList.add("randonneur-register-form");
+
+        var firstNameInput = registerForm.querySelector('input[name="firstName"]');
+        var lastNameInput = registerForm.querySelector('input[name="lastName"]');
+        var firstNameLabel = registerForm.querySelector('label[for="firstName"]');
+
+        if (firstNameLabel) {
+          firstNameLabel.textContent = "${msg("nickname")}";
+        }
+        if (firstNameInput) {
+          firstNameInput.setAttribute("placeholder", "${msg("nickname")}");
+          firstNameInput.setAttribute("autocomplete", "nickname");
+        }
+
+        function syncLastName() {
+          if (!lastNameInput) return;
+          var nick = firstNameInput ? firstNameInput.value.trim() : "";
+          lastNameInput.value = nick || "user";
+          lastNameInput.required = false;
+        }
+
+        if (lastNameInput) {
+          var lastNameGroup = lastNameInput.closest(".form-group")
+            || lastNameInput.closest(".pf-c-form__group")
+            || lastNameInput.closest(".col-xs-6")
+            || lastNameInput.closest(".col-sm-6");
+          if (lastNameGroup) {
+            lastNameGroup.style.display = "none";
+          }
+          syncLastName();
+        }
+
+        if (firstNameInput) {
+          firstNameInput.addEventListener("input", syncLastName);
+        }
+        registerForm.addEventListener("submit", syncLastName);
+
+        // Remove plain text-node asterisks rendered beside required labels.
+        var labelRows = registerForm.querySelectorAll(".form-group > div, .pf-c-form__group > div");
+        for (var r = 0; r < labelRows.length; r++) {
+          var row = labelRows[r];
+          if (!row.querySelector("label")) continue;
+          for (var c = row.childNodes.length - 1; c >= 0; c--) {
+            var node = row.childNodes[c];
+            if (node.nodeType !== Node.TEXT_NODE) continue;
+            var txt = (node.textContent || "").trim();
+            if (txt === "*") {
+              row.removeChild(node);
+            }
+          }
+        }
+
+        // Hide the register-page required-fields legend (e.g. "* 필수 입력 항목")
+        var requiredLegendText = "${msg("requiredFields")}".toLowerCase();
+        var legendCandidates = registerForm.querySelectorAll("div, span, p");
+        for (var i = 0; i < legendCandidates.length; i++) {
+          var el = legendCandidates[i];
+          if (el.querySelector("input, select, textarea, button")) continue;
+          var text = (el.textContent || "").replace(/\s+/g, " ").trim().toLowerCase();
+          if (!text) continue;
+          var looksLikeRequiredLegend =
+            text.indexOf("*") !== -1 &&
+            (text.indexOf(requiredLegendText) !== -1 ||
+             text.indexOf("required") !== -1 ||
+             text.indexOf("필수") !== -1);
+          if (looksLikeRequiredLegend) {
+            el.style.display = "none";
+          }
+        }
+      });
+    </script>
 </head>
 <body class="login-pf kc-login">
     <div class="randonneur-wrapper">
@@ -89,6 +173,8 @@
             <div id="kc-content">
                 <div id="kc-content-wrapper">
                     <#nested "form">
+
+                    <#nested "socialProviders">
 
                     <#if auth?has_content && auth.showTryAnotherWayLink()>
                         <form id="kc-select-try-another-way-form" action="${url.loginAction}" method="post">

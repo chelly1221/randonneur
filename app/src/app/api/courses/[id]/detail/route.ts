@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { downloadGpx } from "@/lib/minio";
-import { parseGpx } from "@/lib/gpx";
+import { normalizeElevationRenderData } from "@/lib/elevation-render";
 
 export async function GET(
   _request: Request,
@@ -26,31 +25,15 @@ export async function GET(
     id
   );
 
-  let gpxData = null;
   let geojsonParsed = null;
+  let bounds: { minLat: number; maxLat: number; minLng: number; maxLng: number } | null = null;
 
-  if (course.gpxFileKey) {
-    try {
-      const gpxBuffer = await downloadGpx(course.gpxFileKey);
-      const gpxString = gpxBuffer.toString("utf-8");
-      gpxData = parseGpx(gpxString);
-      geojsonParsed = gpxData.geojson;
-    } catch {
-      // GPX parsing failed, fall back to DB geometry
-    }
-  }
-
-  if (!geojsonParsed && geoResult[0]?.geojson) {
+  if (geoResult[0]?.geojson) {
     const geom = JSON.parse(geoResult[0].geojson);
     geojsonParsed = {
       type: "FeatureCollection" as const,
       features: [{ type: "Feature" as const, geometry: geom, properties: {} }],
     };
-  }
-
-  let bounds = gpxData?.bounds ?? null;
-  if (!bounds && geoResult[0]?.geojson) {
-    const geom = JSON.parse(geoResult[0].geojson);
     if (geom.coordinates) {
       let minLat = Infinity,
         maxLat = -Infinity,
@@ -66,7 +49,7 @@ export async function GET(
     }
   }
 
-  const elevations = gpxData?.elevations ?? [];
+  const elevationData = normalizeElevationRenderData(course.elevationProfile);
 
   const cpData = checkpoints.map((cp) => ({
     id: cp.id,
@@ -91,11 +74,13 @@ export async function GET(
       tags: course.tags,
       description: course.description,
       designer: course.designer,
+      officialPageUrl: course.officialPageUrl,
       gpxFileKey: course.gpxFileKey,
       archived: course.archived,
     },
     checkpoints: cpData,
-    elevations,
+    elevations: elevationData.points,
+    elevationBands: elevationData.bands,
     geojson: geojsonParsed,
     bounds,
   });

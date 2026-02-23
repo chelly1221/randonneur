@@ -1,12 +1,11 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { downloadGpx } from "@/lib/minio";
-import { parseGpx } from "@/lib/gpx";
 import { CourseDetailClient } from "@/components/course/course-detail-client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CompletionForm } from "@/components/course/completion-form";
 import { CATEGORIES } from "@/types";
+import { normalizeElevationRenderData } from "@/lib/elevation-render";
 import {
   Download,
   ArrowLeft,
@@ -15,11 +14,34 @@ import {
   Clock,
   MapPin,
   User,
+  ExternalLink,
 } from "lucide-react";
 import Link from "next/link";
 import { FavoriteButton } from "@/components/course/favorite-button";
 
 export const dynamic = "force-dynamic";
+
+function buildOfficialPageUrl(courseNumber: string | null | undefined): string | null {
+  if (!courseNumber) return null;
+  const pt = courseNumber.match(/^PT-(\d+)(R?)$/i);
+  if (pt) {
+    const n = Number.parseInt(pt[1], 10);
+    if (!Number.isFinite(n)) return null;
+    const digits = n < 100 ? String(n).padStart(2, "0") : String(n);
+    const suffix = pt[2] ? "R" : "";
+    return `http://www.korearandonneurs.kr:8080/jsp/permanent/info-PT${digits}${suffix}.htm`;
+  }
+
+  const sr = courseNumber.match(/^SR-(\d+)$/i);
+  if (sr) {
+    const n = Number.parseInt(sr[1], 10);
+    if (!Number.isFinite(n)) return null;
+    const digits = n < 100 ? String(n).padStart(2, "0") : String(n);
+    return `http://www.korearandonneurs.kr:8080/jsp/superrando/info-SR${digits}.htm`;
+  }
+
+  return null;
+}
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -28,46 +50,29 @@ interface Props {
 export default async function CourseDetailPage({ params }: Props) {
   const { id } = await params;
 
-  const [course, checkpoints] = await Promise.all([
+  const [course, checkpoints, geoResult] = await Promise.all([
     prisma.course.findUnique({ where: { id } }),
     prisma.checkpoint.findMany({
       where: { courseId: id },
       orderBy: { distanceKm: "asc" },
     }),
+    prisma.$queryRawUnsafe<{ geojson: string }[]>(
+      `SELECT ST_AsGeoJSON(geom) as geojson FROM courses WHERE id = $1::uuid`,
+      id
+    ),
   ]);
 
   if (!course) notFound();
 
-  const geoResult: { geojson: string }[] = await prisma.$queryRawUnsafe(
-    `SELECT ST_AsGeoJSON(geom) as geojson FROM courses WHERE id = $1::uuid`,
-    id
-  );
+  let geojsonParsed: GeoJSON.FeatureCollection | null = null;
+  let bounds: { minLat: number; maxLat: number; minLng: number; maxLng: number } | null = null;
 
-  let gpxData = null;
-  let geojsonParsed = null;
-
-  if (course.gpxFileKey) {
-    try {
-      const gpxBuffer = await downloadGpx(course.gpxFileKey);
-      const gpxString = gpxBuffer.toString("utf-8");
-      gpxData = parseGpx(gpxString);
-      geojsonParsed = gpxData.geojson;
-    } catch {
-      // GPX parsing failed, fall back to DB geometry
-    }
-  }
-
-  if (!geojsonParsed && geoResult[0]?.geojson) {
+  if (geoResult[0]?.geojson) {
     const geom = JSON.parse(geoResult[0].geojson);
     geojsonParsed = {
       type: "FeatureCollection" as const,
       features: [{ type: "Feature" as const, geometry: geom, properties: {} }],
     };
-  }
-
-  let bounds = gpxData?.bounds ?? null;
-  if (!bounds && geoResult[0]?.geojson) {
-    const geom = JSON.parse(geoResult[0].geojson);
     if (geom.coordinates) {
       let minLat = Infinity,
         maxLat = -Infinity,
@@ -84,7 +89,8 @@ export default async function CourseDetailPage({ params }: Props) {
   }
 
   const categories = CATEGORIES.filter((c) => course.category.includes(c.value));
-  const elevations = gpxData?.elevations ?? [];
+  const elevationData = normalizeElevationRenderData(course.elevationProfile);
+  const officialPageUrl = course.officialPageUrl ?? buildOfficialPageUrl(course.courseNumber);
 
   const cpData = checkpoints.map((cp) => ({
     id: cp.id,
@@ -109,6 +115,7 @@ export default async function CourseDetailPage({ params }: Props) {
           <h1 className="text-xl font-bold lg:text-2xl">
             {categories.map((cat) => <span key={cat.value} className="mr-1">{cat.emoji}</span>)}
             {course.name}
+            {course.archived && <span className="ml-1 text-sm font-normal text-t-muted">(구)</span>}
           </h1>
           <Badge variant="primary">{course.region}</Badge>
           {categories.map((cat) => <Badge key={cat.value}>{cat.label}</Badge>)}
@@ -124,6 +131,14 @@ export default async function CourseDetailPage({ params }: Props) {
               <Button variant="outline" size="sm">
                 <Download className="mr-1 h-4 w-4" />
                 GPX
+              </Button>
+            </a>
+          )}
+          {officialPageUrl && !course.archived && (
+            <a href={officialPageUrl} target="_blank" rel="noopener noreferrer">
+              <Button variant="outline" size="sm">
+                <ExternalLink className="mr-1 h-4 w-4" />
+                공식 페이지
               </Button>
             </a>
           )}
@@ -147,7 +162,7 @@ export default async function CourseDetailPage({ params }: Props) {
         <CourseDetailClient
           geojson={geojsonParsed}
           bounds={bounds}
-          elevations={elevations}
+          elevations={elevationData.points}
           checkpoints={cpData}
           compact
         />
@@ -173,7 +188,7 @@ export default async function CourseDetailPage({ params }: Props) {
               <div className="rounded-lg border border-t-border bg-t-surface px-3 py-2">
                 <div className="flex items-center gap-2 text-xs text-t-muted">
                   <Clock className="h-3.5 w-3.5" />
-                  예상 시간
+                  제한 시간
                 </div>
                 <p className="font-semibold text-t-text">{course.estimatedTime}</p>
               </div>
@@ -215,7 +230,7 @@ export default async function CourseDetailPage({ params }: Props) {
                     )}
                     <div className="flex-1 min-w-0">
                       <span className="block truncate text-t-text">{cp.name}</span>
-                      <span className="text-t-muted">{cp.distanceKm} km</span>
+                      <span className="text-t-muted">{cp.distanceKm.toFixed(1)} km</span>
                     </div>
                   </div>
                 ))}

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { SeriesIcon } from "@/components/series-icon";
 import { CATEGORIES } from "@/types";
 import {
   MapPin,
@@ -19,7 +20,7 @@ interface CourseCardProps {
     estimatedTime: string | null;
     startLocation: string;
     endLocation: string;
-    region: string;
+    region: string | null;
     category: string[];
     tags: string[];
     gpxFileKey: string | null;
@@ -38,7 +39,11 @@ export function CourseCard({ course }: CourseCardProps) {
               href={`/courses/${course.id}`}
               className="text-lg font-semibold group-hover:text-t-link transition-colors"
             >
-              {categories.map((cat) => <span key={cat.value} className="mr-1">{cat.emoji}</span>)}
+              {categories.map((cat) => (
+                <span key={cat.value} className="mr-1 inline-flex align-middle">
+                  <SeriesIcon value={cat.value} emoji={cat.emoji} />
+                </span>
+              ))}
               {course.name}
             </Link>
           </div>

@@ -7,13 +7,80 @@ import { THEMES, type ThemeId } from "@/lib/theme";
 const themeIcons: Record<ThemeId | "auto", string> = {
   auto: "A",
   dawn: "\u{1F305}",   // sunrise
-  day: "\u{2600}",     // sun
+  day: "",
   sunset: "\u{1F307}", // sunset
   night: "\u{1F319}",  // crescent moon
   snowy: "\u{2744}",   // snowflake
   rainy: "\u{1F327}",  // rain
   windy: "\u{1F4A8}",  // wind
 };
+
+function renderThemeIcon(id: ThemeId | "auto") {
+  if (id === "dawn") {
+    return (
+      <img
+        src="/dawn.webp?v=4"
+        alt=""
+        className="block h-5 w-5 object-contain"
+      />
+    );
+  }
+  if (id === "day") {
+    return (
+      <img
+        src="/sun.webp"
+        alt=""
+        className="block h-5 w-5 object-contain"
+      />
+    );
+  }
+  if (id === "sunset") {
+    return (
+      <img
+        src="/sunset.webp?v=2"
+        alt=""
+        className="block h-5 w-5 object-contain"
+      />
+    );
+  }
+  if (id === "night") {
+    return (
+      <img
+        src="/night.webp?v=6"
+        alt=""
+        className="block h-7 w-7 object-contain"
+      />
+    );
+  }
+  if (id === "snowy") {
+    return (
+      <img
+        src="/snowy.webp?v=4"
+        alt=""
+        className="block h-7 w-7 object-contain"
+      />
+    );
+  }
+  if (id === "rainy") {
+    return (
+      <img
+        src="/rainy.webp?v=2"
+        alt=""
+        className="block h-6 w-6 object-contain"
+      />
+    );
+  }
+  if (id === "windy") {
+    return (
+      <img
+        src="/windy.webp?v=13"
+        alt=""
+        className="block h-6 w-6 object-contain"
+      />
+    );
+  }
+  return <span className="text-base leading-none">{themeIcons[id]}</span>;
+}
 
 export function ThemeSelector() {
   const { mode, setMode, theme } = useTheme();
@@ -30,7 +97,8 @@ export function ThemeSelector() {
     return () => document.removeEventListener("mousedown", handleClick);
   }, [open]);
 
-  const currentIcon = mode === "auto" ? themeIcons[theme] : themeIcons[mode];
+  const currentIconId: ThemeId | "auto" = mode === "auto" ? theme : mode;
+  const effectiveTheme: ThemeId = mode === "auto" ? theme : mode;
 
   return (
     <div className="relative" ref={ref}>
@@ -39,7 +107,9 @@ export function ThemeSelector() {
         className="flex h-8 w-8 items-center justify-center rounded-md text-sm hover:bg-white/10 transition-colors"
         title="하늘 테마"
       >
-        <span className="text-base leading-none">{currentIcon}</span>
+        <span className="flex h-6 w-6 items-center justify-center">
+          {renderThemeIcon(currentIconId)}
+        </span>
       </button>
 
       {open && (
@@ -51,7 +121,7 @@ export function ThemeSelector() {
               mode === "auto" ? "bg-t-hover text-t-accent font-medium" : "text-t-text hover:bg-t-hover"
             }`}
           >
-            <span className="w-5 text-center text-xs font-bold">A</span>
+            <span className="flex h-6 w-6 items-center justify-center text-xs font-bold">A</span>
             <span>자동</span>
           </button>
 
@@ -62,10 +132,12 @@ export function ThemeSelector() {
               key={t.id}
               onClick={() => { setMode(t.id); setOpen(false); }}
               className={`flex w-full items-center gap-2 px-3 py-1.5 text-sm transition-colors ${
-                mode === t.id ? "bg-t-hover text-t-accent font-medium" : "text-t-text hover:bg-t-hover"
+                effectiveTheme === t.id
+                  ? "bg-t-hover text-t-accent font-medium"
+                  : "text-t-text hover:bg-t-hover"
               }`}
             >
-              <span className="w-5 text-center">{themeIcons[t.id]}</span>
+              <span className="flex h-6 w-6 items-center justify-center">{renderThemeIcon(t.id)}</span>
               <span>{t.label}</span>
             </button>
           ))}

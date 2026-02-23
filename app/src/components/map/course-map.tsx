@@ -122,16 +122,8 @@ export function CourseMap({
                 "width:20px;height:20px;background:#ff9800;border:2px solid #fff;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,0.3);cursor:pointer;color:#fff;font-size:11px;font-weight:bold;display:flex;align-items:center;justify-content:center;";
               el.textContent = String(i + 1);
 
-              const imgHtml = cp.imageKey
-                ? `<img src="/api/images/${cp.imageKey}" alt="${cp.name}" style="max-width:180px;border-radius:4px;margin-top:4px;" loading="lazy"/>`
-                : "";
               const marker = new maplibregl.Marker({ element: el })
                 .setLngLat(pt)
-                .setPopup(
-                  new maplibregl.Popup({ offset: 10, maxWidth: "220px" }).setHTML(
-                    `<div style="padding:4px"><strong>${cp.name}</strong><br/><span style="font-size:0.85em;color:#666">${cp.distanceKm} km</span>${cp.description ? `<br/><span style="font-size:0.85em">${cp.description}</span>` : ""}${imgHtml}</div>`
-                  )
-                )
                 .addTo(map);
 
               cpMarkersRef.current.push(marker);

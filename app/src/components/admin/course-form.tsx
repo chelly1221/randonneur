@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { SeriesIcon } from "@/components/series-icon";
-import { REGIONS, CATEGORIES } from "@/types";
+import { REGIONS, CATEGORIES, REGION_LABELS } from "@/types";
 import { Loader2 } from "lucide-react";
 
 interface CourseFormData {
@@ -217,7 +217,7 @@ export function CourseForm({ initialData, mode }: CourseFormProps) {
             <option value="">선택</option>
             {REGIONS.map((r) => (
               <option key={r} value={r}>
-                {r}
+                {REGION_LABELS[r] ?? r}
               </option>
             ))}
           </Select>

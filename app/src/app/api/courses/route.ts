@@ -37,6 +37,7 @@ export async function GET(request: NextRequest) {
       { name: { contains: q, mode: "insensitive" } },
       { startLocation: { contains: q, mode: "insensitive" } },
       { endLocation: { contains: q, mode: "insensitive" } },
+      { courseNumber: { contains: q, mode: "insensitive" } },
     ];
   }
   if (distance) {

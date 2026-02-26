@@ -6,7 +6,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { Badge } from "@/components/ui/badge";
 import { RangeSlider } from "@/components/ui/range-slider";
 import { SeriesIcon } from "@/components/series-icon";
-import { REGIONS, CATEGORIES } from "@/types";
+import { REGIONS, CATEGORIES, REGION_LABELS } from "@/types";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -123,6 +123,7 @@ export function CourseExplorer({
   const [seriesMenuOpen, setSeriesMenuOpen] = useState(false);
   const [distFilter, setDistFilter] = useState<[number, number]>(distanceRange);
   const [elevFilter, setElevFilter] = useState<[number, number]>(elevationRange);
+  const [showArchived, setShowArchived] = useState(false);
 
   // Selection
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -130,6 +131,8 @@ export function CourseExplorer({
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   // Detail mode
+  const [mapCollapsed, setMapCollapsed] = useState(false);
+  const handleToggleMap = useCallback(() => setMapCollapsed(v => !v), []);
   const [detailData, setDetailData] = useState<DetailData | null>(null);
   const [hoverPoint, setHoverPoint] = useState<[number, number] | null>(null);
   const detailMarkersRef = useRef<maplibregl.Marker[]>([]);
@@ -145,6 +148,8 @@ export function CourseExplorer({
 
   // Compute filtered courses
   const filtered = courses.filter((c) => {
+    // archived mode: show only archived; normal mode: hide archived
+    if (showArchived ? !c.archived : c.archived) return false;
     if (region && c.region !== region) return false;
     if (category && !c.category.includes(category)) return false;
     if (c.distanceKm < distFilter[0] || c.distanceKm > distFilter[1])
@@ -252,6 +257,14 @@ export function CourseExplorer({
     return () => clearTimeout(timer);
   }, [isDetailMode]);
 
+  // Resize map when collapsing/expanding map section (mobile detail toggle)
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !isDetailMode || mapCollapsed) return;
+    const timer = setTimeout(() => map.resize(), 320);
+    return () => clearTimeout(timer);
+  }, [mapCollapsed, isDetailMode]);
+
   // URL sync
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -270,6 +283,7 @@ export function CourseExplorer({
       setDetailData(null);
       setHoverPoint(null);
       setMobileDetailHeight(0);
+      setMapCollapsed(false);
     }
   }, [selectedId]);
 
@@ -821,7 +835,9 @@ export function CourseExplorer({
     : null;
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] flex-col overflow-y-auto scrollbar-hidden">
+    <div className={`flex h-[calc(100vh-4rem)] flex-col scrollbar-hidden ${
+      isDetailMode ? "overflow-hidden" : "overflow-y-auto"
+    }`}>
       {/* Filters bar — smooth collapse in detail mode */}
       <div
         className={`relative z-30 transition-all duration-300 ease-in-out ${
@@ -856,20 +872,10 @@ export function CourseExplorer({
                             }}
                             className="w-full rounded-md border border-t-border bg-t-surface px-3 py-2 text-left text-sm text-t-text focus:border-t-focus focus:outline-none focus:ring-1 focus:ring-t-focus"
                           >
-                            {region || "모든 지역"}
+                            {region ? REGION_LABELS[region] ?? region : "모든 지역"}
                           </button>
                           {regionMenuOpen && (
                             <div className="absolute z-30 mt-1 w-full rounded-md border border-t-border bg-t-surface py-1 shadow-lg">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setRegion("");
-                                  setRegionMenuOpen(false);
-                                }}
-                                className="flex w-full items-center px-3 py-1.5 text-left text-sm text-t-text hover:bg-t-hover"
-                              >
-                                모든 지역
-                              </button>
                               {REGIONS.map((r) => (
                                 <button
                                   key={r}
@@ -880,7 +886,7 @@ export function CourseExplorer({
                                   }}
                                   className="flex w-full items-center px-3 py-1.5 text-left text-sm text-t-text hover:bg-t-hover"
                                 >
-                                  {r}
+                                  {REGION_LABELS[r] ?? r}
                                 </button>
                               ))}
                             </div>
@@ -971,12 +977,25 @@ export function CourseExplorer({
                 )}
               </div>
 
-              <a href="/api/courses/batch-download">
-                <Button variant="outline" size="sm">
-                  <Download className="mr-1 h-3.5 w-3.5" />
-                  GPX 일괄 다운로드
+              <div className="flex items-center gap-1.5">
+                <a href="/api/courses/batch-download">
+                  <Button variant="outline" size="sm">
+                    <Download className="mr-1 h-3.5 w-3.5" />
+                    GPX 일괄 다운로드
+                  </Button>
+                </a>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setShowArchived((v) => !v);
+                    setSelectedId(null);
+                  }}
+                  className={showArchived ? "border-sky-orange/60 bg-sky-orange/10 text-sky-orange hover:bg-sky-orange/20" : ""}
+                >
+                  과거 코스
                 </Button>
-              </a>
+              </div>
 
             </div>
           </div>
@@ -986,7 +1005,11 @@ export function CourseExplorer({
       {/* Map + List split */}
       <div className="flex flex-1 min-h-0 flex-col lg:flex-row">
         {/* Map column — expands on mobile detail mode, fixed 40vh otherwise */}
-        <div className={`${isDetailMode ? "flex-1" : "h-[40vh]"} lg:h-full lg:flex-1 flex flex-col`}>
+        <div className={`${
+          isDetailMode
+            ? (mapCollapsed ? "h-0 overflow-hidden lg:h-auto lg:overflow-visible" : "flex-1")
+            : "h-[40vh]"
+        } lg:h-full lg:flex-1 flex flex-col transition-all duration-300 ease-in-out`}>
           <div ref={mapWrapperRef} className="relative flex-1 min-h-0">
             <div ref={mapContainerRef} className="h-full w-full" />
 
@@ -1046,8 +1069,11 @@ export function CourseExplorer({
         {/* Right panel: pinned to bottom on mobile detail; map fills remaining space */}
         <div
           ref={mobileDetailPanelRef}
-          style={isDetailMode && mobileDetailHeight > 0 ? { minHeight: `${mobileDetailHeight}px` } : undefined}
-          className={`${isDetailMode ? "shrink-0 bg-t-surface" : "flex-1 overflow-y-auto"} scrollbar-hidden flex flex-col transition-[height] duration-300 ease-in-out lg:relative lg:block lg:overflow-hidden border-l border-t-border lg:max-w-md lg:flex-1 lg:h-auto`}
+          className={`${
+            isDetailMode
+              ? (mapCollapsed ? "flex-1 min-h-0 bg-t-surface" : "shrink-0 bg-t-surface")
+              : "flex-1 overflow-y-auto"
+          } scrollbar-hidden flex flex-col transition-all duration-300 ease-in-out lg:relative lg:block lg:overflow-hidden border-l border-t-border lg:max-w-md lg:flex-1 lg:h-auto`}
         >
           {/* Course list — hidden on mobile when detail shown, crossfade on desktop */}
           <div
@@ -1184,14 +1210,16 @@ export function CourseExplorer({
 
           {/* Inline detail — flow on mobile, crossfade on desktop */}
           <div
-            className={`shrink-0 overflow-visible lg:absolute lg:inset-0 lg:overflow-y-auto lg:transition-opacity lg:duration-200 lg:ease-in-out ${
+            className={`${
+              mapCollapsed ? "flex-1 min-h-0 flex flex-col overflow-hidden" : "shrink-0 overflow-visible"
+            } lg:absolute lg:inset-0 lg:overflow-y-auto lg:transition-opacity lg:duration-200 lg:ease-in-out ${
               selectedId && selectedCourse
                 ? "lg:opacity-100"
                 : "hidden lg:block lg:opacity-0 lg:pointer-events-none"
             }`}
           >
             {selectedId && selectedCourse && (
-              <div className="h-auto min-h-0 lg:h-full">
+              <div className={`${mapCollapsed ? "flex-1 min-h-0 flex flex-col" : "h-auto min-h-0"} lg:h-full`}>
                 <CourseInlineDetail
                   key={selectedId}
                   courseId={selectedId}
@@ -1199,6 +1227,8 @@ export function CourseExplorer({
                   onClose={() => setSelectedId(null)}
                   onDataLoaded={handleDetailLoaded}
                   onHeaderHeightChange={handleDetailHeaderHeightChange}
+                  mapCollapsed={mapCollapsed}
+                  onToggleMap={handleToggleMap}
                 />
               </div>
             )}

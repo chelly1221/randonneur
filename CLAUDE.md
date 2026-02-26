@@ -40,7 +40,7 @@ Note: Host ports 3000, 5432, 9000, 9001 are already in use, hence the non-standa
 ## Directory Structure
 
 ```
-randonneur/
+audax/
 ├── CLAUDE.md
 ├── docker-compose.yml
 ├── .env                              # Environment variables (DO NOT COMMIT)

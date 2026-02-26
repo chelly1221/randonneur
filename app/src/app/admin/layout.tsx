@@ -10,8 +10,11 @@ import {
   FileText,
   Activity,
   Upload,
+  Settings,
   Menu,
   X,
+  ClipboardList,
+  ImagePlus,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -21,7 +24,10 @@ const sidebarItems = [
   { href: "/admin/courses/import", label: "일괄 가져오기", icon: Upload },
   { href: "/admin/users", label: "사용자 관리", icon: Users },
   { href: "/admin/gpx", label: "GPX 관리", icon: FileText },
+  { href: "/admin/improvement-requests", label: "수정 요청", icon: ClipboardList },
+  { href: "/admin/checkpoint-photos", label: "CP 사진", icon: ImagePlus },
   { href: "/admin/system", label: "시스템 상태", icon: Activity },
+  { href: "/admin/settings", label: "설정", icon: Settings },
 ];
 
 export default function AdminLayout({

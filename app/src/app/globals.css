@@ -414,3 +414,31 @@
 .maplibregl-ctrl button.maplibregl-ctrl-shrink .maplibregl-ctrl-icon {
   background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='none' stroke='%23333' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3,7 7,7 7,3'/%3E%3Cpolyline points='17,7 13,7 13,3'/%3E%3Cpolyline points='3,13 7,13 7,17'/%3E%3Cpolyline points='17,13 13,13 13,17'/%3E%3C/svg%3E") !important;
 }
+
+/* ================================================================
+   RICH TEXT EDITOR (TipTap)
+   ================================================================ */
+.rte-editor p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--t-muted);
+  pointer-events: none;
+  height: 0;
+}
+.rte-content .ProseMirror { outline: none; }
+.rte-content p   { margin: 0 0 0.3em; }
+.rte-content p:last-child { margin-bottom: 0; }
+.rte-content strong { font-weight: 600; }
+.rte-content em  { font-style: italic; }
+.rte-content ul  { list-style: disc;    padding-left: 1.3em; margin: 0.2em 0; }
+.rte-content ol  { list-style: decimal; padding-left: 1.3em; margin: 0.2em 0; }
+.rte-content li  { margin: 0.1em 0; }
+
+/* Review content display */
+.review-content p   { margin: 0 0 0.3em; }
+.review-content p:last-child { margin-bottom: 0; }
+.review-content strong { font-weight: 600; }
+.review-content em  { font-style: italic; }
+.review-content ul  { list-style: disc;    padding-left: 1.3em; margin: 0.2em 0; }
+.review-content ol  { list-style: decimal; padding-left: 1.3em; margin: 0.2em 0; }
+.review-content li  { margin: 0.1em 0; }

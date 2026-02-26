@@ -6,7 +6,7 @@ import { useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import { UserMenu } from "@/components/auth/user-menu";
 import { ThemeSelector } from "@/components/layout/theme-selector";
-import { Bike, Menu, X, Shield } from "lucide-react";
+import { Menu, X, Shield } from "lucide-react";
 import { useState } from "react";
 
 const navItems = [
@@ -23,9 +23,9 @@ export function Header() {
   return (
     <header className="sticky top-0 z-50 border-b border-white/10 bg-t-header text-white">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
-        <Link href="/" className="flex items-center gap-2 font-bold text-lg">
-          <Bike className="h-6 w-6 text-t-accent" />
-          <span className="hidden sm:inline">3chan</span>
+        <Link href="/" className="flex items-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="3chan" className="h-8 w-auto" />
         </Link>
 
         {/* Desktop nav */}

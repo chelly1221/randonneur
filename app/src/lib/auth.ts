@@ -16,7 +16,13 @@ function resolveDisplayName(
       ? profile.preferred_username.trim()
       : "";
 
-  if (family && given) return `${family}${given}`;
+  if (family && given) {
+    // When Keycloak relays a Google login, it maps Google's full name (e.g. "서상현")
+    // into given_name, leaving family_name as "서". Detect this by checking whether
+    // given_name already begins with family_name — if so, given_name is the full name.
+    if (given.startsWith(family)) return given;
+    return `${family}${given}`;
+  }
   if (user.name && user.name.trim()) return user.name.trim();
   if (preferred) return preferred;
   return "User";

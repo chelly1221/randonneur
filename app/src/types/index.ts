@@ -12,6 +12,18 @@ export const REGIONS = [
 
 export type Region = (typeof REGIONS)[number];
 
+export const REGION_LABELS: Record<string, string> = {
+  경기: "경기도",
+  강원: "강원도",
+  충북: "충청북도",
+  충남: "충청남도",
+  경북: "경상북도",
+  경남: "경상남도",
+  전북: "전라북도",
+  전남: "전라남도",
+  제주: "제주도",
+};
+
 export const CATEGORIES = [
   { value: "sr-600", label: "SR-600", emoji: "🏁" },
   { value: "dongbu-60-pass", label: "동부 60고개", emoji: "⛰️" },

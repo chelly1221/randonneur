@@ -416,6 +416,9 @@ input#kc-login {
   list-style: none !important;
   margin: 0 !important;
   padding: 0 !important;
+  display: flex !important;
+  justify-content: center !important;
+  gap: 0.5rem !important;
 }
 
 #kc-social-providers .pf-c-login__main-footer-links > li {
@@ -423,22 +426,21 @@ input#kc-login {
 }
 
 body.kc-login #kc-social-providers a#social-google.kc-social-item.pf-c-button {
-  width: 100% !important;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
   gap: 0.5rem !important;
   margin: 0 !important;
-  padding: 0.7rem 1rem !important;
-  border-radius: 999px !important;
+  padding: 0.45rem 1.25rem !important;
   border: 0 !important;
+  border-radius: 0.375rem !important;
   background: #ffffff !important;
   color: #0f172a !important;
-  font-size: 0.875rem !important;
+  font-size: 0.9rem !important;
   font-weight: 600 !important;
-  line-height: 1.2 !important;
+  line-height: 1.5 !important;
   text-decoration: none !important;
-  box-shadow: none !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.08) !important;
   outline: none !important;
   background-image: none !important;
   border-bottom: 0 !important;
@@ -458,7 +460,7 @@ body.kc-login #kc-social-providers a#social-google.kc-social-item.pf-c-button:ho
   border-color: transparent !important;
   border-bottom-color: transparent !important;
   border-width: 0 !important;
-  box-shadow: none !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.16), 0 1px 3px rgba(0, 0, 0, 0.1) !important;
   outline: none !important;
   background-image: none !important;
   transform: none !important;
@@ -495,8 +497,8 @@ body.kc-login #kc-social-providers a#social-google.kc-social-item.pf-c-button::a
 }
 
 body.kc-login #kc-social-providers a#social-google .kc-social-provider-logo {
-  width: 1.1rem !important;
-  height: 1.1rem !important;
+  width: 1.2rem !important;
+  height: 1.2rem !important;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -512,6 +514,101 @@ body.kc-login #kc-social-providers a#social-google .kc-social-provider-logo.fa-g
 
 body.kc-login #kc-social-providers a#social-google .kc-social-provider-logo {
   background-image: url("../img/google-g-logo.webp") !important;
+  background-size: contain !important;
+  background-repeat: no-repeat !important;
+  background-position: center !important;
+}
+
+/* -- Naver social login button ---------------------------------- */
+body.kc-login #kc-social-providers a#social-naver.kc-social-item.pf-c-button {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.5rem !important;
+  margin: 0 !important;
+  padding: 0.45rem 1.25rem !important;
+  border: 0 !important;
+  border-radius: 0.375rem !important;
+  background: #03C75A !important;
+  color: #ffffff !important;
+  font-size: 0.9rem !important;
+  font-weight: 600 !important;
+  line-height: 1.5 !important;
+  text-decoration: none !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.08) !important;
+  outline: none !important;
+  background-image: none !important;
+  border-bottom: 0 !important;
+  border-width: 0 !important;
+  text-shadow: none !important;
+  transform: none !important;
+  --pf-v5-c-button--after--BorderWidth: 0 !important;
+  --pf-v5-c-button--after--BorderColor: transparent !important;
+  --pf-v5-c-button--after--BorderBottomWidth: 0 !important;
+  --pf-v5-c-button--m-control--after--BorderBottomWidth: 0 !important;
+  --pf-v5-c-button--m-control--after--BorderColor: transparent !important;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease !important;
+}
+
+body.kc-login #kc-social-providers a#social-naver.kc-social-item.pf-c-button:hover {
+  background: #02b351 !important;
+  border-color: transparent !important;
+  border-bottom-color: transparent !important;
+  border-width: 0 !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.16), 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+  outline: none !important;
+  background-image: none !important;
+  transform: none !important;
+}
+
+body.kc-login #kc-social-providers a#social-naver.kc-social-item.pf-c-button:focus {
+  outline: none !important;
+  border-color: transparent !important;
+  border-bottom-color: transparent !important;
+  border-width: 0 !important;
+  box-shadow: none !important;
+  background-image: none !important;
+}
+
+body.kc-login #kc-social-providers a#social-naver.kc-social-item.pf-c-button:focus-visible,
+body.kc-login #kc-social-providers a#social-naver.kc-social-item.pf-c-button:active,
+body.kc-login #kc-social-providers a#social-naver.kc-social-item.pf-c-button.pf-m-active {
+  outline: none !important;
+  border-color: transparent !important;
+  border-bottom-color: transparent !important;
+  border-width: 0 !important;
+  box-shadow: none !important;
+  -webkit-box-shadow: none !important;
+  background-image: none !important;
+  transform: none !important;
+}
+
+body.kc-login #kc-social-providers a#social-naver.kc-social-item.pf-c-button::before,
+body.kc-login #kc-social-providers a#social-naver.kc-social-item.pf-c-button::after {
+  display: none !important;
+  content: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+body.kc-login #kc-social-providers a#social-naver .kc-social-provider-logo {
+  width: 0.95rem !important;
+  height: 0.95rem !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: transparent !important;
+  font-size: 0 !important;
+}
+
+body.kc-login #kc-social-providers a#social-naver .kc-social-provider-logo::before {
+  content: none !important;
+}
+
+body.kc-login #kc-social-providers a#social-naver .kc-social-provider-logo {
+  background-image: url("../img/naver-n-logo.svg") !important;
   background-size: contain !important;
   background-repeat: no-repeat !important;
   background-position: center !important;

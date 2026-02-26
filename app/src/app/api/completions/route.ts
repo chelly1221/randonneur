@@ -22,6 +22,9 @@ export async function POST(request: NextRequest) {
   const completedAt = formData.get("completedAt") as string;
   const notes = formData.get("notes") as string | null;
   const gpxFile = formData.get("gpx") as File | null;
+  const rawStatus = formData.get("completionStatus") as string | null;
+  const VALID_STATUSES = ["success", "dnf", "dnq", "dns"];
+  const completionStatus = rawStatus && VALID_STATUSES.includes(rawStatus) ? rawStatus : "success";
 
   if (!courseId || !completedAt) {
     return NextResponse.json(
@@ -48,6 +51,7 @@ export async function POST(request: NextRequest) {
       userId: user.id,
       courseId,
       completedAt: new Date(completedAt),
+      completionStatus,
       notes: notes || null,
       gpxFileKey,
     },

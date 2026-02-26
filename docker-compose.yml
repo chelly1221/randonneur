@@ -24,22 +24,11 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: ${DATABASE_URL}
-      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
-      NEXTAUTH_URL: ${NEXTAUTH_URL}
-      AUTH_KEYCLOAK_ID: ${AUTH_KEYCLOAK_ID}
-      AUTH_KEYCLOAK_SECRET: ${AUTH_KEYCLOAK_SECRET}
-      AUTH_KEYCLOAK_ISSUER: ${AUTH_KEYCLOAK_ISSUER}
-      MINIO_ENDPOINT: ${MINIO_ENDPOINT}
-      MINIO_PORT: ${MINIO_PORT}
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-      MINIO_BUCKET: ${MINIO_BUCKET}
-      VALHALLA_URL: ${VALHALLA_URL}
       NODE_ENV: development
       AUTH_TRUST_HOST: "true"
       CHOKIDAR_USEPOLLING: "true"
       WATCHPACK_POLLING: "true"
-    command: sh -c "npm ci && npx prisma migrate deploy && npm run dev"
+    command: sh -c "chown nextjs:nodejs /backups 2>/dev/null; npm ci && npx prisma migrate deploy && npm run dev"
     volumes:
       - ./app:/app
       - app_node_modules:/app/node_modules
@@ -52,7 +41,9 @@ services:
         condition: service_healthy
 
   keycloak:
-    image: quay.io/keycloak/keycloak:26.0
+    build:
+      context: ./keycloak
+      dockerfile: Dockerfile
     restart: unless-stopped
     command: start-dev --import-realm
     environment:
@@ -67,7 +58,7 @@ services:
       KC_PROXY_HEADERS: xforwarded
       KC_HTTP_ENABLED: "true"
     volumes:
-      - ./keycloak:/opt/keycloak/data/import
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json
       - ./keycloak/themes/randonneur:/opt/keycloak/themes/randonneur
     ports:
       - "8180:8080"

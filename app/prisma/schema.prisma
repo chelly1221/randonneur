@@ -11,7 +11,7 @@ datasource db {
 
 model Course {
   id            String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  courseNumber  String?  @unique @map("course_number")
+  courseNumber  String?  @map("course_number") // unique only for active courses (partial index in DB)
   name          String
   distanceKm    Float    @map("distance_km")
   elevationM    Int      @map("elevation_m")
@@ -31,10 +31,12 @@ model Course {
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
-  completions  Completion[]
-  downloads    Download[]
-  checkpoints  Checkpoint[]
-  favorites    Favorite[]
+  completions          Completion[]
+  downloads            Download[]
+  checkpoints          Checkpoint[]
+  favorites            Favorite[]
+  reviews              Review[]
+  improvementRequests  ImprovementRequest[]
 
   @@map("courses")
 }
@@ -47,20 +49,24 @@ model User {
   role        String   @default("user")
   createdAt   DateTime @default(now()) @map("created_at")
 
-  completions Completion[]
-  favorites   Favorite[]
+  completions                Completion[]
+  favorites                  Favorite[]
+  reviews                    Review[]
+  improvementRequests        ImprovementRequest[]
+  checkpointPhotoSubmissions CheckpointPhotoSubmission[]
 
   @@map("users")
 }
 
 model Completion {
-  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  userId      String   @map("user_id") @db.Uuid
-  courseId     String   @map("course_id") @db.Uuid
-  completedAt DateTime @map("completed_at")
-  gpxFileKey  String?  @map("gpx_file_key")
-  notes       String?
-  createdAt   DateTime @default(now()) @map("created_at")
+  id               String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId           String   @map("user_id") @db.Uuid
+  courseId         String   @map("course_id") @db.Uuid
+  completedAt      DateTime @map("completed_at")
+  completionStatus String   @default("success") @map("completion_status")
+  gpxFileKey       String?  @map("gpx_file_key")
+  notes            String?
+  createdAt        DateTime @default(now()) @map("created_at")
 
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
@@ -88,7 +94,8 @@ model Checkpoint {
   imageKey    String? @map("image_key")
   sortOrder   Int     @default(0) @map("sort_order")
 
-  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  course           Course                     @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  photoSubmissions CheckpointPhotoSubmission[]
 
   @@map("checkpoints")
 }
@@ -103,4 +110,62 @@ model Favorite {
 
   @@unique([userId, courseId])
   @@map("favorites")
+}
+
+model Setting {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("settings")
+}
+
+model Review {
+  id               String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId           String   @map("user_id") @db.Uuid
+  courseId         String   @map("course_id") @db.Uuid
+  completionStatus String   @default("completed") @map("completion_status")
+  difficulty       String?
+  content          String
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@map("reviews")
+}
+
+model ImprovementRequest {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  courseId  String   @map("course_id") @db.Uuid
+  category  String?  @map("category")
+  content   String
+  status    String   @default("pending")
+  adminNote String?  @map("admin_note")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
+  @@map("improvement_requests")
+}
+
+model CheckpointPhotoSubmission {
+  id           String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  checkpointId String   @map("checkpoint_id") @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  imageKey     String   @map("image_key")
+  status       String   @default("pending")
+  adminNote    String?  @map("admin_note")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  checkpoint Checkpoint @relation(fields: [checkpointId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("checkpoint_photo_submissions")
 }

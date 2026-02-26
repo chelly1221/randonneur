@@ -46,6 +46,67 @@
           if (googleLabel) {
             googleLabel.textContent = "구글";
           }
+          var naverLabel = document.querySelector("#social-naver .kc-social-provider-name");
+          if (naverLabel) {
+            naverLabel.textContent = "네이버";
+          }
+        }
+
+        // Inject Naver logo icon (SPI doesn't generate kc-social-provider-logo for custom providers)
+        var naverBtn = document.getElementById("social-naver");
+        if (naverBtn && !naverBtn.querySelector(".kc-social-provider-logo")) {
+          var icon = document.createElement("i");
+          icon.className = "kc-social-provider-logo";
+          icon.setAttribute("aria-hidden", "true");
+          naverBtn.insertBefore(icon, naverBtn.firstChild);
+        }
+
+        // -- Update-profile form (shown after social login) --
+        var updateForm = document.getElementById("kc-update-profile-form");
+        if (updateForm) {
+          var upFirstName = updateForm.querySelector('input[name="firstName"]');
+          var upLastName = updateForm.querySelector('input[name="lastName"]');
+          var upFirstLabel = updateForm.querySelector('label[for="firstName"]');
+
+          // Merge existing lastName + firstName into nickname
+          if (upFirstName) {
+            var existingLast = (upLastName && upLastName.value.trim()) || "";
+            var existingFirst = upFirstName.value.trim();
+            var merged = (existingLast + existingFirst).trim();
+            if (merged) {
+              upFirstName.value = merged;
+            }
+          }
+
+          // Relabel firstName as Nickname
+          if (upFirstLabel) {
+            upFirstLabel.textContent = "${msg("nickname")}";
+          }
+          if (upFirstName) {
+            upFirstName.setAttribute("placeholder", "${msg("nickname")}");
+          }
+
+          // Hide lastName field
+          if (upLastName) {
+            var upLastGroup = upLastName.closest(".form-group")
+              || upLastName.closest(".pf-c-form__group");
+            if (upLastGroup) {
+              upLastGroup.style.display = "none";
+            }
+          }
+
+          // Sync lastName on submit
+          function syncUpdateLastName() {
+            if (!upLastName) return;
+            var nick = upFirstName ? upFirstName.value.trim() : "";
+            upLastName.value = nick || "user";
+            upLastName.required = false;
+          }
+          syncUpdateLastName();
+          if (upFirstName) {
+            upFirstName.addEventListener("input", syncUpdateLastName);
+          }
+          updateForm.addEventListener("submit", syncUpdateLastName);
         }
 
         var registerForm = document.getElementById("kc-register-form");

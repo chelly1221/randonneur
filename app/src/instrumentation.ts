@@ -37,6 +37,9 @@ export async function register() {
 
   // Randonneurs.be permanent course scraper scheduler
   scheduleRandonneursBeScraper();
+
+  // BC Randonneurs permanent course scraper scheduler
+  scheduleBcrScraper();
 }
 
 /**
@@ -276,6 +279,67 @@ async function checkAndRunRandonneursBeScraper() {
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       console.error("[randonneurs-be] Failed:", msg);
+    } finally {
+      await prisma.$disconnect();
+    }
+  } catch {
+    // Prisma not available — ignore
+  }
+}
+
+/**
+ * Schedule the BC Randonneurs scraper to run once monthly.
+ * Uses setInterval (6 hours) + month check to avoid external dependencies.
+ */
+function scheduleBcrScraper() {
+  // Initial delay: 8 minutes after server start (stagger from BE's 6min)
+  setTimeout(async () => {
+    await checkAndRunBcrScraper();
+
+    // Then check every 6 hours
+    setInterval(checkAndRunBcrScraper, 6 * 60 * 60 * 1000);
+  }, 480_000);
+}
+
+async function checkAndRunBcrScraper() {
+  try {
+    const { PrismaClient } = await import("@prisma/client");
+    const prisma = new PrismaClient();
+
+    try {
+      // Check if scraper is enabled
+      const enabledSetting = await prisma.setting.findUnique({
+        where: { key: "BCR_SCRAPER_ENABLED" },
+      });
+      if (enabledSetting?.value === "false") return;
+
+      // Check if already ran this month (compare YYYY-MM)
+      const lastScrapeSetting = await prisma.setting.findUnique({
+        where: { key: "BCR_LAST_SCRAPE_DATE" },
+      });
+
+      if (lastScrapeSetting) {
+        const lastScrape = new Date(lastScrapeSetting.value);
+        const now = new Date();
+        const toMonth = (d: Date) => {
+          const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+          return kst.toISOString().slice(0, 7); // YYYY-MM
+        };
+        if (toMonth(lastScrape) === toMonth(now)) return;
+      }
+
+      console.log("[bcr] Starting monthly scrape...");
+      const { runBcrScraper } = await import("./lib/bcr-scraper");
+      const result = await runBcrScraper();
+      console.log(
+        `[bcr] Done: ${result.created} created, ${result.updated} updated, ${result.skipped} skipped, ${result.errors.length} errors`
+      );
+      if (result.errors.length > 0) {
+        console.warn("[bcr] Errors:", result.errors.slice(0, 5));
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("[bcr] Failed:", msg);
     } finally {
       await prisma.$disconnect();
     }

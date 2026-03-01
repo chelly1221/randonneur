@@ -21,7 +21,7 @@
 | Object Storage  | MinIO (GPX + image storage)                          |
 | Orchestration   | Docker Compose                                       |
 | Themes          | 7 visual themes with weather effects                 |
-| Scrapers        | Automated course/event import (ACP, Audax AU, KORA, Randonneurs.be) |
+| Scrapers        | Automated course/event import (ACP, Audax AU, KORA, Randonneurs.be, BC Randonneurs) |
 
 **Fully on-premise.** No external SaaS dependencies except public map tile CDNs. All services run in Docker containers.
 
@@ -143,6 +143,7 @@ audax/
 │       │               ├── kora/route.ts             # POST run ACP BRM scraper
 │       │               ├── audax-au/route.ts         # POST run Audax AU scraper
 │       │               ├── randonneurs-be/route.ts   # POST run Randonneurs.be scraper
+│       │               ├── bcr/route.ts              # POST run BC Randonneurs scraper
 │       │               └── kora-permanents/route.ts  # POST run KORA permanents scraper
 │       │
 │       ├── components/
@@ -206,6 +207,7 @@ audax/
 │       │   ├── audax-au-scraper.ts   # Audax Australia permanent course scraper
 │       │   ├── kora-permanents-scraper.ts # Korea Randonneurs permanent course scraper
 │       │   ├── randonneurs-be-scraper.ts # Randonneurs.be Belgium permanent course scraper
+│       │   ├── bcr-scraper.ts        # BC Randonneurs Canada permanent course scraper
 │       │   └── utils.ts              # General utilities (cn, etc.)
 │       │
 │       └── types/
@@ -390,6 +392,13 @@ Three scrapers run on schedule via `instrumentation.ts` (Node.js setInterval, no
 - **Output:** Course records with sourceType='randonneurs-be', country='BE'
 - **Dedup:** externalId e.g. "be-perm-louis-beirinckxroute"
 
+#### BC Randonneurs Canada Permanents (`bcr-scraper.ts`)
+- **Source:** `database.randonneurs.bc.ca/browse/routes`
+- **Data:** BC permanent courses with GPX files from Backblaze B2 (only courses with GPX)
+- **Schedule:** Monthly (checked every 6h, 8min startup delay)
+- **Output:** Course records with sourceType='bcr', country='CA'
+- **Dedup:** externalId e.g. "bcr-37"
+
 #### Scraper Admin Settings (stored in `settings` table)
 - `{SCRAPER}_ENABLED` — boolean toggle
 - `{SCRAPER}_LAST_SCRAPE_DATE` — ISO timestamp of last run
@@ -524,6 +533,7 @@ POST      /api/admin/scraper/kora        — Run ACP BRM scraper manually (admin
 POST      /api/admin/scraper/audax-au    — Run Audax AU scraper manually (admin)
 POST      /api/admin/scraper/kora-permanents — Run KORA permanents scraper manually (admin)
 POST      /api/admin/scraper/randonneurs-be  — Run Randonneurs.be scraper manually (admin)
+POST      /api/admin/scraper/bcr             — Run BC Randonneurs scraper manually (admin)
 
 # System
 GET       /api/health                    — Service health checks

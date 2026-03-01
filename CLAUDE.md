@@ -3,7 +3,7 @@
 ## Project Overview
 
 **URL:** https://audax.3chan.kr
-**Purpose:** A self-hosted platform for global randonneuring (long-distance cycling) permanent courses and BRM events. Started with 187 Korean courses imported from the legacy site, now expanded to multi-country support with automated scrapers for Australia (Audax Australia) and worldwide BRM events (ACP calendar).
+**Purpose:** A self-hosted platform for global randonneuring (long-distance cycling) permanent courses and BRM events. Started with 187 Korean courses imported from the legacy site, now expanded to multi-country support (KR, AU, BE, CA) with automated scrapers for Australia, Belgium, Canada (BC + Ontario + Alberta), Korea permanents, and worldwide BRM events (ACP calendar).
 **Legacy reference code:** `~/www/wordpress/wp-content/plugins/permanent-course` (WordPress plugin powering the legacy site)
 
 ## Tech Stack
@@ -21,7 +21,7 @@
 | Object Storage  | MinIO (GPX + image storage)                          |
 | Orchestration   | Docker Compose                                       |
 | Themes          | 7 visual themes with weather effects                 |
-| Scrapers        | Automated course/event import (ACP, Audax AU, KORA, Randonneurs.be, BC Randonneurs) |
+| Scrapers        | Automated course/event import (ACP, Audax AU, KORA, Randonneurs.be, BC Randonneurs, Ontario Randonneurs, Alberta Randonneurs) |
 
 **Fully on-premise.** No external SaaS dependencies except public map tile CDNs. All services run in Docker containers.
 
@@ -144,7 +144,9 @@ audax/
 │       │               ├── audax-au/route.ts         # POST run Audax AU scraper
 │       │               ├── randonneurs-be/route.ts   # POST run Randonneurs.be scraper
 │       │               ├── bcr/route.ts              # POST run BC Randonneurs scraper
-│       │               └── kora-permanents/route.ts  # POST run KORA permanents scraper
+│       │               ├── kora-permanents/route.ts  # POST run KORA permanents scraper
+│       │               ├── ontario-randonneurs/route.ts # GET/POST/PATCH Ontario Randonneurs scraper
+│       │               └── alberta-randonneurs/route.ts # GET/POST/PATCH Alberta Randonneurs scraper
 │       │
 │       ├── components/
 │       │   ├── theme-provider.tsx     # Theme context (7 themes)
@@ -208,6 +210,8 @@ audax/
 │       │   ├── kora-permanents-scraper.ts # Korea Randonneurs permanent course scraper
 │       │   ├── randonneurs-be-scraper.ts # Randonneurs.be Belgium permanent course scraper
 │       │   ├── bcr-scraper.ts        # BC Randonneurs Canada permanent course scraper
+│       │   ├── ontario-randonneurs-scraper.ts # Randonneurs Ontario permanent course scraper
+│       │   ├── alberta-randonneurs-scraper.ts # Alberta Randonneurs permanent course scraper
 │       │   └── utils.ts              # General utilities (cn, etc.)
 │       │
 │       └── types/
@@ -264,7 +268,7 @@ Unified map + list view for Korean courses (country='KR' or null):
 - Click route on map or card to navigate to detail
 
 ### World Course Explorer (`/courses/world`)
-Global courses from non-Korean countries (Audax Australia, etc.):
+Global courses from non-Korean countries (AU, BE, CA):
 - Interactive map view showing worldwide course locations
 - List view with country, region, distance filters
 - Country flag indicators (AU, etc.)
@@ -362,47 +366,63 @@ High-density 2-column layout:
 - **Scraper Controls** — Enable/disable, manual run, status/stats for each scraper (in System page)
 
 ### Automated Scrapers
-Three scrapers run on schedule via `instrumentation.ts` (Node.js setInterval, no external scheduler):
+Seven scrapers run on periodic intervals via `instrumentation.ts` (Node.js setInterval, no external scheduler). Scrapers do **not** run on server start -- they only run on their periodic intervals (1h for ACP, 6h for all others) and can be manually triggered from the admin UI:
 
 #### ACP BRM World Calendar (`kora-scraper.ts`)
 - **Source:** ACP API (`brevets.audax-club-parisien.com`)
 - **Data:** Worldwide BRM brevet events (all countries, all distances)
-- **Schedule:** Daily (checked hourly, 30s startup delay)
+- **Schedule:** Daily (checked hourly)
 - **Output:** Event records with sourceType='acp', country mapping
 - **Dedup:** externalId e.g. "acp-2026-0307-korea-seoul-200"
 
 #### Audax Australia Courses (`audax-au-scraper.ts`)
 - **Source:** `audax.org.au/ride/permanents-register/`
 - **Data:** Australian permanent randonneuring courses with GPX from RideWithGPS
-- **Schedule:** Monthly (checked every 6h, 2min startup delay)
+- **Schedule:** Monthly (checked every 6h)
 - **Output:** Course records with sourceType='audax-au', country='AU', GPX uploaded to MinIO
 - **Dedup:** externalId e.g. "audax-au-{rideId}"
 
 #### Korea Randonneurs Permanents (`kora-permanents-scraper.ts`)
 - **Source:** `korearandonneurs.kr` permanents page
 - **Data:** Official Korean permanent courses with GPX from RideWithGPS
-- **Schedule:** Monthly (checked every 6h, 4min startup delay)
+- **Schedule:** Monthly (checked every 6h)
 - **Output:** Course records with sourceType='kora-permanent', country='KR'
 - **Dedup:** externalId e.g. "kora-PT01", matches existing courses by courseNumber
 
 #### Randonneurs.be Belgium Permanents (`randonneurs-be-scraper.ts`)
 - **Source:** `randonneurs.be/fr/randonnees-permanentes/`
 - **Data:** Belgian permanent randonneuring courses with GPX from RideWithGPS
-- **Schedule:** Monthly (checked every 6h, 6min startup delay)
+- **Schedule:** Monthly (checked every 6h)
 - **Output:** Course records with sourceType='randonneurs-be', country='BE'
 - **Dedup:** externalId e.g. "be-perm-louis-beirinckxroute"
 
 #### BC Randonneurs Canada Permanents (`bcr-scraper.ts`)
 - **Source:** `database.randonneurs.bc.ca/browse/routes`
 - **Data:** BC permanent courses with GPX files from Backblaze B2 (only courses with GPX)
-- **Schedule:** Monthly (checked every 6h, 8min startup delay)
+- **Schedule:** Monthly (checked every 6h)
 - **Output:** Course records with sourceType='bcr', country='CA'
 - **Dedup:** externalId e.g. "bcr-37"
 
+#### Randonneurs Ontario Canada Permanents (`ontario-randonneurs-scraper.ts`)
+- **Source:** `randonneursontario.ca` — 4 chapter pages (Toronto, Simcoe-Muskoka, Ottawa, Huron)
+- **Data:** Ontario permanent courses with GPX from RideWithGPS or direct GPX downloads
+- **Schedule:** Monthly (checked every 6h)
+- **Output:** Course records with sourceType='ontario-randonneurs', country='CA'
+- **Dedup:** externalId e.g. "or-tor-route-name-200"
+- **Chapters:** `torroutes.html`, `simroutes.html`, `ottroutes.html`, `hurroutes.html`
+
+#### Alberta Randonneurs Canada Permanents (`alberta-randonneurs-scraper.ts`)
+- **Source:** `albertarandonneurs.com/?page_id=54`
+- **Data:** Alberta permanent courses with RWGPS and GPX from detail pages
+- **Schedule:** Monthly (checked every 6h)
+- **Output:** Course records with sourceType='alberta-randonneurs', country='CA'
+- **Dedup:** externalId e.g. "ab-{pageId}"
+- **Regions:** Calgary, Edmonton, Lethbridge, Medicine Hat, Fort McMurray, Red Deer
+
 #### Scraper Admin Settings (stored in `settings` table)
-- `{SCRAPER}_ENABLED` — boolean toggle
-- `{SCRAPER}_LAST_SCRAPE_DATE` — ISO timestamp of last run
-- `{SCRAPER}_LAST_SCRAPE_RESULT` — JSON with created/updated/skipped/errors counts
+- `{SCRAPER}_ENABLED` — boolean toggle (e.g. `AB_SCRAPER_ENABLED` for Alberta)
+- `{SCRAPER}_LAST_SCRAPE_DATE` — ISO timestamp of last run (e.g. `AB_LAST_SCRAPE_DATE`)
+- `{SCRAPER}_LAST_SCRAPE_RESULT` — JSON with created/updated/skipped/errors counts (e.g. `AB_LAST_SCRAPE_RESULT`)
 
 ### Theme System
 7 visual themes with weather effects:
@@ -534,6 +554,8 @@ POST      /api/admin/scraper/audax-au    — Run Audax AU scraper manually (admi
 POST      /api/admin/scraper/kora-permanents — Run KORA permanents scraper manually (admin)
 POST      /api/admin/scraper/randonneurs-be  — Run Randonneurs.be scraper manually (admin)
 POST      /api/admin/scraper/bcr             — Run BC Randonneurs scraper manually (admin)
+GET/POST/PATCH /api/admin/scraper/ontario-randonneurs — Ontario Randonneurs scraper status/run/toggle (admin)
+GET/POST/PATCH /api/admin/scraper/alberta-randonneurs — Alberta Randonneurs scraper status/run/toggle (admin)
 
 # System
 GET       /api/health                    — Service health checks
@@ -622,8 +644,8 @@ Note: If the DB password contains special characters like `&&`, URL-encode them 
 - GPX files stored in MinIO under `gpx-files` bucket with keys: `courses/{course_id}.gpx`, checkpoint images under `images/`.
 - **Scrapers use Node built-in http/https** — forced IPv4 for Docker DNS compatibility, regex-based HTML parsing (no external HTML parser dependency).
 - **RideWithGPS integration** — scrapers fetch route geometry from RideWithGPS public API (`/routes/{id}.json`), convert track_points to GPX.
-- **Scraper scheduling** — uses `instrumentation.ts` with `setInterval` (no cron dependency). ACP daily, Audax AU and KORA monthly. Staggered startup delays.
-- **Multi-country courses** — existing Korean courses have `country='KR'` (backfilled via migration). `/courses` shows KR only, `/courses/world` shows non-KR.
+- **Scraper scheduling** — uses `instrumentation.ts` with `setInterval` (no cron dependency). ACP checked hourly (daily), all others checked every 6h (monthly). No startup runs -- scrapers only fire on interval and via admin manual trigger.
+- **Multi-country courses** — existing Korean courses have `country='KR'` (backfilled via migration). `/courses` shows KR only, `/courses/world` shows non-KR. Supported countries: KR, AU, BE, CA (BC + Ontario + Alberta). Course `sourceType` values: null (manual), 'audax-au', 'kora-permanent', 'randonneurs-be', 'bcr', 'ontario-randonneurs', 'alberta-randonneurs'.
 
 ## Color Theme — Randonneuring Sky
 

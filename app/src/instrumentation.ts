@@ -26,34 +26,26 @@ export async function register() {
     // Prisma not available during build — ignore
   }
 
-  // ACP BRM scraper scheduler
-  scheduleAcpScraper();
+  // ACP BRM scraper — check every hour
+  setInterval(checkAndRunAcpScraper, 60 * 60 * 1000);
 
-  // Audax Australia permanent course scraper scheduler
-  scheduleAudaxAuScraper();
+  // Audax Australia — check every 6 hours
+  setInterval(checkAndRunAudaxAuScraper, 6 * 60 * 60 * 1000);
 
-  // Korea Randonneurs permanent course scraper scheduler
-  scheduleKoraPermScraper();
+  // Korea Randonneurs permanents — check every 6 hours
+  setInterval(checkAndRunKoraPermScraper, 6 * 60 * 60 * 1000);
 
-  // Randonneurs.be permanent course scraper scheduler
-  scheduleRandonneursBeScraper();
+  // Randonneurs.be — check every 6 hours
+  setInterval(checkAndRunRandonneursBeScraper, 6 * 60 * 60 * 1000);
 
-  // BC Randonneurs permanent course scraper scheduler
-  scheduleBcrScraper();
-}
+  // BC Randonneurs — check every 6 hours
+  setInterval(checkAndRunBcrScraper, 6 * 60 * 60 * 1000);
 
-/**
- * Schedule the ACP BRM scraper to run once daily.
- * Uses setInterval (1 hour) + date check to avoid external dependencies.
- */
-function scheduleAcpScraper() {
-  // Initial delay: 30 seconds after server start
-  setTimeout(async () => {
-    await checkAndRunAcpScraper();
+  // Randonneurs Ontario — check every 6 hours
+  setInterval(checkAndRunOntarioScraper, 6 * 60 * 60 * 1000);
 
-    // Then check every hour
-    setInterval(checkAndRunAcpScraper, 60 * 60 * 1000);
-  }, 30_000);
+  // Alberta Randonneurs — check every 6 hours
+  setInterval(checkAndRunAlbertaScraper, 6 * 60 * 60 * 1000);
 }
 
 async function checkAndRunAcpScraper() {
@@ -104,20 +96,6 @@ async function checkAndRunAcpScraper() {
   }
 }
 
-/**
- * Schedule the Audax Australia scraper to run once monthly.
- * Uses setInterval (6 hours) + month check to avoid external dependencies.
- */
-function scheduleAudaxAuScraper() {
-  // Initial delay: 2 minutes after server start (stagger from ACP's 30s)
-  setTimeout(async () => {
-    await checkAndRunAudaxAuScraper();
-
-    // Then check every 6 hours
-    setInterval(checkAndRunAudaxAuScraper, 6 * 60 * 60 * 1000);
-  }, 120_000);
-}
-
 async function checkAndRunAudaxAuScraper() {
   try {
     const { PrismaClient } = await import("@prisma/client");
@@ -163,20 +141,6 @@ async function checkAndRunAudaxAuScraper() {
   } catch {
     // Prisma not available — ignore
   }
-}
-
-/**
- * Schedule the Korea Randonneurs permanent course scraper to run once monthly.
- * Uses setInterval (6 hours) + month check to avoid external dependencies.
- */
-function scheduleKoraPermScraper() {
-  // Initial delay: 4 minutes after server start (stagger from AU's 2min)
-  setTimeout(async () => {
-    await checkAndRunKoraPermScraper();
-
-    // Then check every 6 hours
-    setInterval(checkAndRunKoraPermScraper, 6 * 60 * 60 * 1000);
-  }, 240_000);
 }
 
 async function checkAndRunKoraPermScraper() {
@@ -226,20 +190,6 @@ async function checkAndRunKoraPermScraper() {
   }
 }
 
-/**
- * Schedule the Randonneurs.be scraper to run once monthly.
- * Uses setInterval (6 hours) + month check to avoid external dependencies.
- */
-function scheduleRandonneursBeScraper() {
-  // Initial delay: 6 minutes after server start (stagger from KORA's 4min)
-  setTimeout(async () => {
-    await checkAndRunRandonneursBeScraper();
-
-    // Then check every 6 hours
-    setInterval(checkAndRunRandonneursBeScraper, 6 * 60 * 60 * 1000);
-  }, 360_000);
-}
-
 async function checkAndRunRandonneursBeScraper() {
   try {
     const { PrismaClient } = await import("@prisma/client");
@@ -287,20 +237,6 @@ async function checkAndRunRandonneursBeScraper() {
   }
 }
 
-/**
- * Schedule the BC Randonneurs scraper to run once monthly.
- * Uses setInterval (6 hours) + month check to avoid external dependencies.
- */
-function scheduleBcrScraper() {
-  // Initial delay: 8 minutes after server start (stagger from BE's 6min)
-  setTimeout(async () => {
-    await checkAndRunBcrScraper();
-
-    // Then check every 6 hours
-    setInterval(checkAndRunBcrScraper, 6 * 60 * 60 * 1000);
-  }, 480_000);
-}
-
 async function checkAndRunBcrScraper() {
   try {
     const { PrismaClient } = await import("@prisma/client");
@@ -340,6 +276,100 @@ async function checkAndRunBcrScraper() {
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       console.error("[bcr] Failed:", msg);
+    } finally {
+      await prisma.$disconnect();
+    }
+  } catch {
+    // Prisma not available — ignore
+  }
+}
+
+async function checkAndRunOntarioScraper() {
+  try {
+    const { PrismaClient } = await import("@prisma/client");
+    const prisma = new PrismaClient();
+
+    try {
+      // Check if scraper is enabled
+      const enabledSetting = await prisma.setting.findUnique({
+        where: { key: "OR_SCRAPER_ENABLED" },
+      });
+      if (enabledSetting?.value === "false") return;
+
+      // Check if already ran this month (compare YYYY-MM)
+      const lastScrapeSetting = await prisma.setting.findUnique({
+        where: { key: "OR_LAST_SCRAPE_DATE" },
+      });
+
+      if (lastScrapeSetting) {
+        const lastScrape = new Date(lastScrapeSetting.value);
+        const now = new Date();
+        const toMonth = (d: Date) => {
+          const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+          return kst.toISOString().slice(0, 7); // YYYY-MM
+        };
+        if (toMonth(lastScrape) === toMonth(now)) return;
+      }
+
+      console.log("[ontario] Starting monthly scrape...");
+      const { runOntarioRandonneursScraper } = await import("./lib/ontario-randonneurs-scraper");
+      const result = await runOntarioRandonneursScraper();
+      console.log(
+        `[ontario] Done: ${result.created} created, ${result.updated} updated, ${result.skipped} skipped, ${result.errors.length} errors`
+      );
+      if (result.errors.length > 0) {
+        console.warn("[ontario] Errors:", result.errors.slice(0, 5));
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("[ontario] Failed:", msg);
+    } finally {
+      await prisma.$disconnect();
+    }
+  } catch {
+    // Prisma not available — ignore
+  }
+}
+
+async function checkAndRunAlbertaScraper() {
+  try {
+    const { PrismaClient } = await import("@prisma/client");
+    const prisma = new PrismaClient();
+
+    try {
+      // Check if scraper is enabled
+      const enabledSetting = await prisma.setting.findUnique({
+        where: { key: "AB_SCRAPER_ENABLED" },
+      });
+      if (enabledSetting?.value === "false") return;
+
+      // Check if already ran this month (compare YYYY-MM)
+      const lastScrapeSetting = await prisma.setting.findUnique({
+        where: { key: "AB_LAST_SCRAPE_DATE" },
+      });
+
+      if (lastScrapeSetting) {
+        const lastScrape = new Date(lastScrapeSetting.value);
+        const now = new Date();
+        const toMonth = (d: Date) => {
+          const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+          return kst.toISOString().slice(0, 7); // YYYY-MM
+        };
+        if (toMonth(lastScrape) === toMonth(now)) return;
+      }
+
+      console.log("[alberta] Starting monthly scrape...");
+      const { runAlbertaRandonneursScraper } = await import("./lib/alberta-randonneurs-scraper");
+      const result = await runAlbertaRandonneursScraper();
+      console.log(
+        `[alberta] Done: ${result.created} created, ${result.updated} updated, ${result.skipped} skipped, ${result.errors.length} errors`
+      );
+      if (result.errors.length > 0) {
+        console.warn("[alberta] Errors:", result.errors.slice(0, 5));
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("[alberta] Failed:", msg);
     } finally {
       await prisma.$disconnect();
     }

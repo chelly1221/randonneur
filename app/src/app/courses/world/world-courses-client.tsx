@@ -134,6 +134,7 @@ export function WorldCoursesClient({
       },
       center: [133.77, -25.27],
       zoom: 4,
+      minZoom: 1,
       attributionControl: false,
     });
 

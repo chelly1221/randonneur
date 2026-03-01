@@ -116,13 +116,29 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
+ * Decode HTML entities (&#8211; → –, &amp; → &, etc.)
+ */
+function decodeHtmlEntities(s: string): string {
+  return s
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code, 10)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, code) => String.fromCharCode(parseInt(code, 16)))
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&nbsp;/g, " ");
+}
+
+/**
  * Parse the listing page to extract course links.
  * Structure: <ul> containing <li><a href="...">Course Name</a></li>
+ * Filters out empty names and deduplicates by slug.
  */
 function parseListingPage(html: string): ParsedCourse[] {
+  const seen = new Set<string>();
   const courses: ParsedCourse[] = [];
 
-  // Find the content area with permanent route links
   // Links follow pattern: https://randonneurs.be/fr/perm-xxx/
   const linkRegex =
     /<a\s+href=["'](https?:\/\/randonneurs\.be\/fr\/(perm-[^"'/]+)\/?)['""][^>]*>([\s\S]*?)<\/a>/gi;
@@ -131,11 +147,14 @@ function parseListingPage(html: string): ParsedCourse[] {
   while ((match = linkRegex.exec(html)) !== null) {
     const detailUrl = match[1];
     const slug = match[2];
-    const name = match[3].replace(/<[^>]+>/g, "").trim();
+    const rawName = match[3].replace(/<[^>]+>/g, "").trim();
+    const name = decodeHtmlEntities(rawName);
 
-    if (name && slug) {
-      courses.push({ name, slug, detailUrl });
-    }
+    // Skip empty names (navigation/menu links) and duplicates
+    if (!name || seen.has(slug)) continue;
+    seen.add(slug);
+
+    courses.push({ name, slug, detailUrl });
   }
 
   return courses;

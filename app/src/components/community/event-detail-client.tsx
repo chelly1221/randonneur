@@ -43,6 +43,9 @@ interface EventDetailProps {
     startDate: string;
     endDate: string | null;
     maxParticipants: number | null;
+    sourceType?: string | null;
+    sourceUrl?: string | null;
+    country?: string | null;
     createdAt: string;
     user: { id: string; displayName: string; avatarKey: string | null };
     course: { id: string; name: string; distanceKm: number; region: string | null } | null;
@@ -178,6 +181,29 @@ export function EventDetailClient({
                 >
                   {EVENT_TYPE_LABELS[event.eventType] ?? event.eventType}
                 </Badge>
+                {event.sourceType && (
+                  event.sourceUrl ? (
+                    <a
+                      href={event.sourceUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded bg-sky-blue/10 text-sky-blue font-medium hover:bg-sky-blue/20 transition-colors"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {event.sourceType === "acp" ? "ACP" : event.sourceType.toUpperCase()}
+                      <ExternalLink className="h-2.5 w-2.5" />
+                    </a>
+                  ) : (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-sky-blue/10 text-sky-blue font-medium">
+                      {event.sourceType === "acp" ? "ACP" : event.sourceType.toUpperCase()}
+                    </span>
+                  )
+                )}
+                {event.country && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-sky-orange/10 text-sky-orange font-medium">
+                    {event.country}
+                  </span>
+                )}
               </div>
               <h2 className="text-xl font-bold text-t-text">{event.title}</h2>
             </div>

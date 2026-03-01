@@ -1,53 +1,56 @@
 import { prisma } from "@/lib/db";
-import { CourseExplorer } from "@/components/course/course-explorer-v2";
+import { WorldCoursesClient } from "./world-courses-client";
 import { getCourseColor, getPastelCourseColor } from "@/lib/course-colors";
 
 export const dynamic = "force-dynamic";
 
-interface CourseRow {
+interface WorldCourseRow {
   id: string;
   name: string;
+  course_number: string | null;
   distance_km: number;
   elevation_m: number;
   region: string | null;
   category: string[];
   start_location: string;
   end_location: string;
-  course_number: string | null;
   gpx_file_key: string | null;
   tags: string[];
-  archived: boolean;
+  country: string | null;
+  official_page_url: string | null;
   geojson: string | null;
 }
 
-export default async function CoursesPage() {
-  // Fetch courses with simplified geometries
-  const rows: CourseRow[] = await prisma.$queryRawUnsafe(`
+export default async function WorldCoursesPage() {
+  const rows: WorldCourseRow[] = await prisma.$queryRawUnsafe(`
     SELECT
-      id, name, distance_km, elevation_m, region, category,
-      start_location, end_location, course_number, gpx_file_key, tags, archived,
+      id, name, course_number, distance_km, elevation_m, region, category,
+      start_location, end_location, gpx_file_key, tags, country,
+      official_page_url,
       ST_AsGeoJSON(ST_Simplify(geom, 0.001)) as geojson
     FROM courses
-    WHERE (country = 'KR' OR country IS NULL)
-    ORDER BY distance_km ASC
+    WHERE archived = false
+    ORDER BY country ASC, distance_km ASC
   `);
 
   const courses = rows.map((r) => ({
     id: r.id,
     name: r.name,
+    courseNumber: r.course_number,
     distanceKm: r.distance_km,
     elevationM: r.elevation_m,
     region: r.region,
     category: r.category,
     startLocation: r.start_location,
     endLocation: r.end_location,
-    courseNumber: r.course_number,
     gpxFileKey: r.gpx_file_key,
     tags: r.tags ?? [],
-    archived: r.archived,
+    country: r.country,
+    officialPageUrl: r.official_page_url,
+    hasGeometry: !!r.geojson,
   }));
 
-  // Build GeoJSON FeatureCollection
+  // Build GeoJSON for map
   const features = rows
     .map((r) => {
       if (!r.geojson) return null;
@@ -61,7 +64,7 @@ export default async function CoursesPage() {
             region: r.region,
             distanceKm: r.distance_km,
             courseNumber: r.course_number,
-            archived: r.archived,
+            country: r.country,
             color: getCourseColor(r.id),
             pastelColor: getPastelCourseColor(r.id),
           },
@@ -78,26 +81,16 @@ export default async function CoursesPage() {
     features,
   };
 
-  // Compute min/max for range sliders
-  const distances = courses.map((c) => c.distanceKm);
-  const elevations = courses.map((c) => c.elevationM);
-
-  const distanceRange: [number, number] = [
-    Math.floor(Math.min(...distances) / 10) * 10,
-    Math.ceil(Math.max(...distances) / 10) * 10,
-  ];
-
-  const elevationRange: [number, number] = [
-    Math.floor(Math.min(...elevations) / 100) * 100,
-    Math.ceil(Math.max(...elevations) / 100) * 100,
-  ];
+  // Collect unique regions and countries
+  const regions = [...new Set(courses.map((c) => c.region).filter(Boolean))] as string[];
+  const countries = [...new Set(courses.map((c) => c.country).filter(Boolean))] as string[];
 
   return (
-    <CourseExplorer
+    <WorldCoursesClient
       courses={courses}
       featureCollection={featureCollection}
-      distanceRange={distanceRange}
-      elevationRange={elevationRange}
+      regions={regions}
+      countries={countries}
     />
   );
 }

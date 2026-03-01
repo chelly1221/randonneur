@@ -24,12 +24,14 @@ export async function GET(request: NextRequest) {
   const region = searchParams.get("region");
   const distance = searchParams.get("distance");
   const category = searchParams.get("category");
+  const country = searchParams.get("country");
   const q = searchParams.get("q");
   const page = parseInt(searchParams.get("page") ?? "1");
   const limit = parseInt(searchParams.get("limit") ?? "20");
   const withGeojson = searchParams.get("geojson") === "true";
 
   const where: Prisma.CourseWhereInput = {};
+  if (country) where.country = country;
   if (region) where.region = region;
   if (category) where.category = { has: category };
   if (q) {

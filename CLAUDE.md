@@ -1,9 +1,9 @@
-# Randonneur - Korea Randonneuring Course Platform
+# Randonneur - Global Randonneuring Course Platform
 
 ## Project Overview
 
 **URL:** https://audax.3chan.kr
-**Purpose:** A self-hosted platform for Korean randonneuring (long-distance cycling) permanent courses. 187 real courses imported from the legacy site at https://archive1.3chan.kr/randonneur-course/.
+**Purpose:** A self-hosted platform for global randonneuring (long-distance cycling) permanent courses and BRM events. Started with 187 Korean courses imported from the legacy site, now expanded to multi-country support with automated scrapers for Australia (Audax Australia) and worldwide BRM events (ACP calendar).
 **Legacy reference code:** `~/www/wordpress/wp-content/plugins/permanent-course` (WordPress plugin powering the legacy site)
 
 ## Tech Stack
@@ -21,6 +21,7 @@
 | Object Storage  | MinIO (GPX + image storage)                          |
 | Orchestration   | Docker Compose                                       |
 | Themes          | 7 visual themes with weather effects                 |
+| Scrapers        | Automated course/event import (ACP, Audax AU, KORA)  |
 
 **Fully on-premise.** No external SaaS dependencies except public map tile CDNs. All services run in Docker containers.
 
@@ -70,7 +71,10 @@ audax/
 │       │   ├── sitemap.ts            # Sitemap generator
 │       │   │
 │       │   ├── courses/
-│       │   │   ├── page.tsx          # Course explorer (map + list + filters)
+│       │   │   ├── page.tsx          # Course explorer — Korean courses (map + list + filters)
+│       │   │   ├── world/
+│       │   │   │   ├── page.tsx              # World courses page (server)
+│       │   │   │   └── world-courses-client.tsx # World courses client (map + list + country filter)
 │       │   │   └── [id]/
 │       │   │       └── page.tsx      # Course detail + map + elevation + reviews
 │       │   │
@@ -103,7 +107,7 @@ audax/
 │       │   │   ├── courses/          # Course CRUD + import
 │       │   │   ├── users/            # User management (ban/role)
 │       │   │   ├── gpx/              # GPX file management (MinIO)
-│       │   │   ├── system/           # System health checks + backups
+│       │   │   ├── system/           # System health checks + backups + scraper controls
 │       │   │   ├── reports/          # Content report review
 │       │   │   └── seasonal/         # Seasonal picks management
 │       │   │
@@ -125,12 +129,20 @@ audax/
 │       │       ├── favorites/
 │       │       │   ├── route.ts              # POST toggle favorite
 │       │       │   └── me/route.ts           # GET my favorites
+│       │       ├── events/
+│       │       │   ├── route.ts              # GET list (country filter), POST create
+│       │       │   ├── countries/route.ts    # GET unique event countries
+│       │       │   └── [id]/route.ts         # GET, PUT, DELETE
 │       │       └── admin/
 │       │           ├── stats/route.ts        # GET dashboard stats
 │       │           ├── users/route.ts        # GET user list
 │       │           ├── upload-gpx/route.ts   # POST GPX to MinIO
 │       │           ├── gpx-list/route.ts     # GET MinIO file list
-│       │           └── upload-image/route.ts # POST checkpoint images
+│       │           ├── upload-image/route.ts # POST checkpoint images
+│       │           └── scraper/
+│       │               ├── kora/route.ts             # POST run ACP BRM scraper
+│       │               ├── audax-au/route.ts         # POST run Audax AU scraper
+│       │               └── kora-permanents/route.ts  # POST run KORA permanents scraper
 │       │
 │       ├── components/
 │       │   ├── theme-provider.tsx     # Theme context (7 themes)
@@ -189,6 +201,9 @@ audax/
 │       │   ├── badges.ts             # Badge definitions and logic
 │       │   ├── notifications.ts      # Notification helpers
 │       │   ├── user-guard.ts         # Active user validation middleware
+│       │   ├── kora-scraper.ts       # ACP BRM world calendar scraper
+│       │   ├── audax-au-scraper.ts   # Audax Australia permanent course scraper
+│       │   ├── kora-permanents-scraper.ts # Korea Randonneurs permanent course scraper
 │       │   └── utils.ts              # General utilities (cn, etc.)
 │       │
 │       └── types/
@@ -235,14 +250,23 @@ audax/
 
 ## Core Features
 
-### Course Explorer (`/courses`)
-Unified map + list view with inline filters:
+### Course Explorer — Korea (`/courses`)
+Unified map + list view for Korean courses (country='KR' or null):
 - Interactive MapLibre GL JS map with all course routes overlaid (color-coded by region)
 - Tile source switching: OSM, OpenTopoMap, CARTO Light, CARTO Dark
 - Filterable course list: region, distance range (slider), category, search
 - GPX download per course (individual + batch ZIP download)
 - Course cards with distance, elevation, start/end locations, category emoji
 - Click route on map or card to navigate to detail
+
+### World Course Explorer (`/courses/world`)
+Global courses from non-Korean countries (Audax Australia, etc.):
+- Interactive map view showing worldwide course locations
+- List view with country, region, distance filters
+- Country flag indicators (AU, etc.)
+- Category badges (BP, BPD, BPG, BPR, SR, RAID)
+- External links to official course pages
+- Navigation: "세계" tab in header alongside "한국" (Korea)
 
 ### Course Detail (`/courses/[id]`)
 - Interactive map with route + checkpoints displayed
@@ -276,9 +300,12 @@ High-density 2-column layout:
 - Photo gallery from reviews and journals
 
 #### Events (`/community/events`)
-- **Official events only** — admin-only creation/edit/delete
+- **Official events only** — admin-only creation/edit/delete, plus automated ACP BRM imports
 - Calendar view (month grid desktop, week strip mobile) + list view
+- Country filter dropdown (defaults to Korea, supports worldwide view)
 - Event types: 브레베, 그룹라이드, 자전거 축제, 기타
+- Source badges (ACP for scraped events) with link to official source
+- Country flag and name badges on event cards
 - Participation system: 참가/관심있음 with capacity limits
 - Linked to courses (optional)
 
@@ -328,6 +355,36 @@ High-density 2-column layout:
 - **Improvement Requests** — Review course improvement suggestions
 - **Checkpoint Photos** — Review user-submitted checkpoint photos
 - **Backups** — Create, download, upload, restore database backups
+- **Scraper Controls** — Enable/disable, manual run, status/stats for each scraper (in System page)
+
+### Automated Scrapers
+Three scrapers run on schedule via `instrumentation.ts` (Node.js setInterval, no external scheduler):
+
+#### ACP BRM World Calendar (`kora-scraper.ts`)
+- **Source:** ACP API (`brevets.audax-club-parisien.com`)
+- **Data:** Worldwide BRM brevet events (all countries, all distances)
+- **Schedule:** Daily (checked hourly, 30s startup delay)
+- **Output:** Event records with sourceType='acp', country mapping
+- **Dedup:** externalId e.g. "acp-2026-0307-korea-seoul-200"
+
+#### Audax Australia Courses (`audax-au-scraper.ts`)
+- **Source:** `audax.org.au/ride/permanents-register/`
+- **Data:** Australian permanent randonneuring courses with GPX from RideWithGPS
+- **Schedule:** Monthly (checked every 6h, 2min startup delay)
+- **Output:** Course records with sourceType='audax-au', country='AU', GPX uploaded to MinIO
+- **Dedup:** externalId e.g. "audax-au-{rideId}"
+
+#### Korea Randonneurs Permanents (`kora-permanents-scraper.ts`)
+- **Source:** `korearandonneurs.kr` permanents page
+- **Data:** Official Korean permanent courses with GPX from RideWithGPS
+- **Schedule:** Monthly (checked every 6h, 4min startup delay)
+- **Output:** Course records with sourceType='kora-permanent', country='KR'
+- **Dedup:** externalId e.g. "kora-PT01", matches existing courses by courseNumber
+
+#### Scraper Admin Settings (stored in `settings` table)
+- `{SCRAPER}_ENABLED` — boolean toggle
+- `{SCRAPER}_LAST_SCRAPE_DATE` — ISO timestamp of last run
+- `{SCRAPER}_LAST_SCRAPE_RESULT` — JSON with created/updated/skipped/errors counts
 
 ### Theme System
 7 visual themes with weather effects:
@@ -341,7 +398,7 @@ High-density 2-column layout:
 All tables use UUID primary keys. PostgreSQL extensions: `postgis`, `uuid-ossp`.
 
 ### Core Tables
-- **`courses`** — id, course_number, name, distance_km, elevation_m, estimated_time, start_location, end_location, region, category, tags[], description, designer, gpx_file_key, archived, geom (PostGIS LineString 4326), created_at, updated_at
+- **`courses`** — id, course_number, name, distance_km, elevation_m, estimated_time, start_location, end_location, region, category, tags[], description, designer, gpx_file_key, archived, geom (PostGIS LineString 4326), country, source_type, external_id, created_at, updated_at
 - **`users`** — id, keycloak_id, display_name, email, role, status (active/banned), avatar_key, bio, created_at
 - **`completions`** — id, user_id, course_id, completed_at, completion_status (success/dnf/dnq/dns/partial), gpx_file_key, notes, created_at
 - **`downloads`** — id, course_id, downloaded_at, ip_hash
@@ -358,7 +415,7 @@ All tables use UUID primary keys. PostgreSQL extensions: `postgis`, `uuid-ossp`.
 - **`review_photos`** — id, review_id, image_key, sort_order
 
 ### Events & Features
-- **`events`** — id, user_id, title, description, event_type, course_id, location, start_date, end_date, max_participants, created_at (admin-only creation)
+- **`events`** — id, user_id, title, description, event_type, course_id, location, start_date, end_date, max_participants, source_type, external_id, source_url, country, created_at (admin-only creation + ACP scraper)
 - **`event_participants`** — id, event_id, user_id, status (going/interested/cancelled)
 - **`seasonal_picks`** — id, course_id, season, year, description, sort_order
 - **`badges`** — id, user_id, badge_type, earned_at
@@ -376,7 +433,7 @@ GET/POST  /api/auth/[...nextauth]       — Auth.js endpoints
 POST      /api/auth/keycloak-logout      — Keycloak backchannel logout
 
 # Courses
-GET       /api/courses                   — List courses (filters: region, distance, category, q, archived)
+GET       /api/courses                   — List courses (filters: region, distance, category, q, archived, country)
 POST      /api/courses                   — Create course (admin)
 GET       /api/courses/:id               — Course detail with checkpoints
 PUT       /api/courses/:id               — Update course (admin)
@@ -415,8 +472,9 @@ GET       /api/community/recent-completions  — Recent completions
 GET       /api/activity                      — Activity feed (all/following/mine)
 GET/POST  /api/journals                      — Ride journals
 GET/PUT/DEL /api/journals/:id                — Journal CRUD
-GET/POST  /api/events                        — Events (GET public, POST admin-only)
+GET/POST  /api/events                        — Events (GET public w/ country filter, POST admin-only)
 GET/PUT/DEL /api/events/:id                  — Event CRUD (PUT/DEL admin-only)
+GET       /api/events/countries              — Unique event country list
 POST      /api/events/:id/participate        — Event participation (user)
 GET/POST  /api/polls                         — Polls
 POST      /api/polls/:id/vote               — Vote on poll
@@ -453,6 +511,9 @@ GET/POST  /api/admin/improvement-requests — Manage improvement requests
 GET/POST  /api/admin/backups             — Backup management
 POST      /api/admin/backups/restore     — Restore from backup
 POST      /api/admin/settings            — Admin settings
+POST      /api/admin/scraper/kora        — Run ACP BRM scraper manually (admin)
+POST      /api/admin/scraper/audax-au    — Run Audax AU scraper manually (admin)
+POST      /api/admin/scraper/kora-permanents — Run KORA permanents scraper manually (admin)
 
 # System
 GET       /api/health                    — Service health checks
@@ -539,6 +600,10 @@ Note: If the DB password contains special characters like `&&`, URL-encode them 
 - **Valhalla initial build** — first start downloads Korea OSM PBF from Geofabrik and builds routing graph (takes 10-30 min).
 - **`.dockerignore` is critical** — without it, `node_modules` (800MB+) gets sent as Docker build context.
 - GPX files stored in MinIO under `gpx-files` bucket with keys: `courses/{course_id}.gpx`, checkpoint images under `images/`.
+- **Scrapers use Node built-in http/https** — forced IPv4 for Docker DNS compatibility, regex-based HTML parsing (no external HTML parser dependency).
+- **RideWithGPS integration** — scrapers fetch route geometry from RideWithGPS public API (`/routes/{id}.json`), convert track_points to GPX.
+- **Scraper scheduling** — uses `instrumentation.ts` with `setInterval` (no cron dependency). ACP daily, Audax AU and KORA monthly. Staggered startup delays.
+- **Multi-country courses** — existing Korean courses have `country='KR'` (backfilled via migration). `/courses` shows KR only, `/courses/world` shows non-KR.
 
 ## Color Theme — Randonneuring Sky
 

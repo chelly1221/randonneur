@@ -12,9 +12,18 @@ import { useState } from "react";
 
 const navItems = [
   { href: "/", label: "홈" },
-  { href: "/courses", label: "코스" },
+  { href: "/courses", label: "한국" },
+  { href: "/courses/world", label: "세계" },
   { href: "/community", label: "커뮤니티" },
 ];
+
+function isNavActive(pathname: string, href: string): boolean {
+  if (href === "/") return pathname === "/";
+  if (href === "/courses") {
+    return pathname === "/courses" || (pathname.startsWith("/courses/") && !pathname.startsWith("/courses/world"));
+  }
+  return pathname.startsWith(href);
+}
 
 export function Header() {
   const pathname = usePathname();
@@ -41,7 +50,7 @@ export function Header() {
               href={item.href}
               className={cn(
                 "text-sm font-medium transition-colors whitespace-nowrap",
-                pathname === item.href
+                isNavActive(pathname, item.href)
                   ? "text-t-accent"
                   : "text-white/70 hover:text-white"
               )}
@@ -89,7 +98,7 @@ export function Header() {
               onClick={() => setMenuOpen(false)}
               className={cn(
                 "block rounded-md px-3 py-2 text-sm font-medium",
-                pathname === item.href
+                isNavActive(pathname, item.href)
                   ? "bg-white/10 text-t-accent"
                   : "text-white/70 hover:bg-white/5 hover:text-white"
               )}

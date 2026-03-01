@@ -28,6 +28,7 @@ export async function GET(
       },
     },
   });
+  // sourceType, sourceUrl are included automatically via include (all scalar fields)
 
   if (!event) {
     return NextResponse.json({ error: "Event not found" }, { status: 404 });

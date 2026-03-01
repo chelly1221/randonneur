@@ -7,6 +7,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const month = searchParams.get("month"); // e.g. "2026-03"
   const type = searchParams.get("type"); // brevet, group_ride, festival, other
+  const country = searchParams.get("country"); // e.g. "Korea", "France"
 
   const where: Record<string, unknown> = {};
 
@@ -29,6 +30,10 @@ export async function GET(request: NextRequest) {
 
   if (type) {
     where.eventType = type;
+  }
+
+  if (country) {
+    where.country = country;
   }
 
   const events = await prisma.event.findMany({

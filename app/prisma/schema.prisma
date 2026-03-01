@@ -26,6 +26,9 @@ model Course {
   gpxFileKey    String?  @map("gpx_file_key")
   officialPageUrl String? @map("official_page_url")
   archived      Boolean  @default(false)
+  country       String?  // 'KR', 'AU', etc.
+  sourceType    String?  @map("source_type") // 'audax-au' for scraped, null for manual
+  externalId    String?  @map("external_id") // 'audax-au-{rideId}' for dedup
   geom          Unsupported("geometry(LineString, 4326)")?
   elevationProfile Json? @map("elevation_profile") @db.JsonB
   createdAt     DateTime @default(now()) @map("created_at")
@@ -41,6 +44,8 @@ model Course {
   seasonalPicks        SeasonalPick[]
   events               Event[]
 
+  @@unique([sourceType, externalId])
+  @@index([country])
   @@map("courses")
 }
 
@@ -431,6 +436,10 @@ model Event {
   startDate       DateTime  @map("start_date")
   endDate         DateTime? @map("end_date")
   maxParticipants Int?      @map("max_participants")
+  sourceType      String?   @map("source_type") // "acp" or null (manual)
+  externalId      String?   @map("external_id") // dedup key, e.g. "acp-2026-0307-korea-seoul-200"
+  sourceUrl       String?   @map("source_url") // link to source page
+  country         String?   @map("country") // ACP country name, e.g. "Korea", "France"
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
@@ -438,8 +447,10 @@ model Event {
   course       Course?            @relation(fields: [courseId], references: [id], onDelete: SetNull)
   participants EventParticipant[]
 
+  @@unique([sourceType, externalId])
   @@index([startDate])
   @@index([userId])
+  @@index([country])
   @@map("events")
 }
 

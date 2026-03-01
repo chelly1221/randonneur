@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { EventCard, type EventCardData } from "@/components/community/event-card";
+import { EventCard, EventRow, type EventCardData } from "@/components/community/event-card";
 import {
   ChevronLeft,
   ChevronRight,
@@ -45,6 +45,71 @@ const EVENT_TYPE_COLORS: Record<string, string> = {
   other: "bg-gray-400",
 };
 
+const COUNTRY_KO: Record<string, string> = {
+  "Allemagne": "독일",
+  "Argentina": "아르헨티나",
+  "Armenia": "아르메니아",
+  "Australia": "호주",
+  "Austria": "오스트리아",
+  "Belgium": "벨기에",
+  "Bosnia and Hercegovina": "보스니아",
+  "Brasil": "브라질",
+  "Bulgaria": "불가리아",
+  "Cambodia": "캄보디아",
+  "Canada": "캐나다",
+  "Chile": "칠레",
+  "China": "중국",
+  "Croatia": "크로아티아",
+  "Czech Republic": "체코",
+  "Denmark": "덴마크",
+  "Finland": "핀란드",
+  "France": "프랑스",
+  "Georgia": "조지아",
+  "Greece": "그리스",
+  "Hong Kong": "홍콩",
+  "Hungary": "헝가리",
+  "India": "인도",
+  "Indonesia": "인도네시아",
+  "Ireland": "아일랜드",
+  "Israel": "이스라엘",
+  "Italy": "이탈리아",
+  "Japan": "일본",
+  "Korea": "한국",
+  "Kyrgyzstan": "키르기스스탄",
+  "Latvia": "라트비아",
+  "Lithuania": "리투아니아",
+  "Macao": "마카오",
+  "Macedonia": "마케도니아",
+  "Malaysia": "말레이시아",
+  "Mexico": "멕시코",
+  "Moldova": "몰도바",
+  "New Zealand": "뉴질랜드",
+  "Norway": "노르웨이",
+  "Philippines": "필리핀",
+  "Poland": "폴란드",
+  "Portugal": "포르투갈",
+  "Romania": "루마니아",
+  "Serbia": "세르비아",
+  "Singapore": "싱가포르",
+  "Slovenia": "슬로베니아",
+  "South Africa": "남아프리카",
+  "Spain": "스페인",
+  "Sweden": "스웨덴",
+  "Switzerland": "스위스",
+  "Taiwan": "대만",
+  "The Netherlands": "네덜란드",
+  "Ukraine": "우크라이나",
+  "United Kingdom": "영국",
+  "Uruguay": "우루과이",
+  "USA": "미국",
+  "Uzbekistan": "우즈베키스탄",
+  "Vietnam": "베트남",
+};
+
+function countryLabel(code: string): string {
+  return COUNTRY_KO[code] || code;
+}
+
 const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
 
 // Always produce exactly 42 cells (6 rows x 7 columns) for consistent grid height
@@ -85,12 +150,22 @@ export function EventCalendar({ defaultView = "calendar" }: EventCalendarProps) 
   const [loading, setLoading] = useState(true);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedType, setSelectedType] = useState("");
+  const [selectedCountry, setSelectedCountry] = useState("Korea");
+  const [countries, setCountries] = useState<string[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [view, setView] = useState<"calendar" | "list">(defaultView);
   const [weekStart, setWeekStart] = useState(() =>
     startOfWeek(new Date(), { weekStartsOn: 0 })
   );
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Load country list on mount
+  useEffect(() => {
+    fetch("/api/events/countries")
+      .then((r) => r.json())
+      .then((data: string[]) => setCountries(data))
+      .catch(() => {});
+  }, []);
 
   const fetchEvents = useCallback(async () => {
     // Cancel any in-flight request to prevent race conditions
@@ -104,6 +179,7 @@ export function EventCalendar({ defaultView = "calendar" }: EventCalendarProps) 
     const monthStr = format(currentMonth, "yyyy-MM");
     const params = new URLSearchParams({ month: monthStr });
     if (selectedType) params.set("type", selectedType);
+    if (selectedCountry) params.set("country", selectedCountry);
 
     try {
       const res = await fetch(`/api/events?${params}`, {
@@ -127,7 +203,7 @@ export function EventCalendar({ defaultView = "calendar" }: EventCalendarProps) 
         setLoading(false);
       }
     }
-  }, [currentMonth, selectedType]);
+  }, [currentMonth, selectedType, selectedCountry]);
 
   useEffect(() => {
     fetchEvents();
@@ -223,6 +299,20 @@ export function EventCalendar({ defaultView = "calendar" }: EventCalendarProps) 
         </div>
 
         <div className="flex items-center gap-2">
+          <select
+            value={selectedCountry}
+            onChange={(e) => setSelectedCountry(e.target.value)}
+            className="rounded-md border border-t-border bg-t-surface px-2.5 py-1.5 text-sm text-t-text max-w-[140px]"
+            aria-label="국가 필터"
+          >
+            <option value="">전세계</option>
+            {countries.map((c) => (
+              <option key={c} value={c}>
+                {countryLabel(c)}
+              </option>
+            ))}
+          </select>
+
           <select
             value={selectedType}
             onChange={(e) => setSelectedType(e.target.value)}
@@ -347,7 +437,7 @@ export function EventCalendar({ defaultView = "calendar" }: EventCalendarProps) 
         </>
       )}
 
-      {/* List View (original) */}
+      {/* List View — vertical timeline grouped by date */}
       {!loading && view === "list" && (
         <>
           {events.length === 0 ? (
@@ -358,10 +448,41 @@ export function EventCalendar({ defaultView = "calendar" }: EventCalendarProps) 
               </CardContent>
             </Card>
           ) : (
-            <div className="space-y-2">
-              {events.map((event) => (
-                <EventCard key={event.id} event={event} />
-              ))}
+            <div className="relative">
+              {Array.from(eventsByDate.entries()).map(([dateKey, dayEvents], groupIdx, arr) => {
+                const d = new Date(dateKey + "T00:00:00");
+                const today = isToday(d);
+                const isLast = groupIdx === arr.length - 1;
+                return (
+                  <div key={dateKey} className="flex gap-3">
+                    {/* Timeline rail */}
+                    <div className="flex flex-col items-center w-14 shrink-0">
+                      {/* Date chip */}
+                      <div className={`text-center rounded-md px-1.5 py-1 ${today ? "bg-sky-darkblue text-white" : "bg-t-subtle text-t-text"}`}>
+                        <div className="text-[10px] font-medium leading-none">
+                          {format(d, "EEE", { locale: ko })}
+                        </div>
+                        <div className="text-base font-bold leading-tight">
+                          {format(d, "d")}
+                        </div>
+                      </div>
+                      {/* Vertical line */}
+                      {!isLast && (
+                        <div className="flex-1 w-px bg-t-border min-h-[8px]" />
+                      )}
+                    </div>
+
+                    {/* Events for this date */}
+                    <div className={`flex-1 min-w-0 pb-4 ${isLast ? "" : ""}`}>
+                      <div className="rounded-lg border border-t-border bg-t-surface overflow-hidden divide-y divide-t-border">
+                        {dayEvents.map((event) => (
+                          <EventRow key={event.id} event={event} />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </>

@@ -78,6 +78,18 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           .realm_access as { roles?: string[] } | undefined;
         token.roles = realmAccess?.roles ?? ["user"];
       }
+      // Refresh user status from DB
+      if (token.sub) {
+        try {
+          const dbUser = await prisma.user.findUnique({
+            where: { keycloakId: token.sub },
+            select: { status: true },
+          });
+          token.status = dbUser?.status ?? "active";
+        } catch {
+          token.status = token.status ?? "active";
+        }
+      }
       return token;
     },
     async session({ session, token }) {
@@ -85,6 +97,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         session.user.id = token.sub!;
         session.user.roles = (token.roles as string[]) ?? ["user"];
         session.user.name = (token.name as string) ?? session.user.name ?? null;
+        session.user.status = (token.status as string) ?? "active";
       }
       return session;
     },

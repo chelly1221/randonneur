@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { checkAndAwardBadges } from "@/lib/badges";
 
 export async function GET(
   _request: NextRequest,
@@ -13,6 +14,7 @@ export async function GET(
     orderBy: { createdAt: "desc" },
     include: {
       user: { select: { id: true, displayName: true } },
+      _count: { select: { comments: true, likes: true } },
     },
   });
 
@@ -33,6 +35,9 @@ export async function POST(
   });
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+  if (user.status === "banned" || user.status === "muted") {
+    return NextResponse.json({ error: "Account restricted" }, { status: 403 });
   }
 
   const { id: courseId } = await params;
@@ -70,6 +75,9 @@ export async function POST(
       user: { select: { id: true, displayName: true } },
     },
   });
+
+  // Award badges asynchronously
+  checkAndAwardBadges(user.id).catch(() => {});
 
   return NextResponse.json(review, { status: 201 });
 }

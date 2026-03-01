@@ -27,7 +27,7 @@ fi
 if [[ -z "${GOOGLE_CLIENT_ID:-}" || -z "${GOOGLE_CLIENT_SECRET:-}" ]]; then
   echo "Missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET in $ENV_FILE"
   echo "Google Cloud Console redirect URI:"
-  echo "  https://randonneur.3chan.kr/realms/$REALM/broker/google/endpoint"
+  echo "  https://audax.3chan.kr/realms/$REALM/broker/google/endpoint"
   exit 1
 fi
 

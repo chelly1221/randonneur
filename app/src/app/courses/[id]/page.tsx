@@ -18,8 +18,35 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { FavoriteButton } from "@/components/course/favorite-button";
+import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const course = await prisma.course.findUnique({
+    where: { id },
+    select: { name: true, distanceKm: true, elevationM: true, region: true, startLocation: true },
+  });
+
+  if (!course) return { title: "코스를 찾을 수 없습니다" };
+
+  const title = `${course.name} (${course.distanceKm}km)`;
+  const description = `${course.startLocation} 출발, ${course.distanceKm}km, ${course.elevationM}m 획득고도${course.region ? ` — ${course.region}` : ""}`;
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+    },
+  };
+}
 
 function buildOfficialPageUrl(courseNumber: string | null | undefined): string | null {
   if (!courseNumber) return null;

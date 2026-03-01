@@ -3,7 +3,7 @@
 import { signOut, useSession } from "next-auth/react";
 import { LoginButton } from "./login-button";
 import { useState } from "react";
-import { LogOut, User, Shield } from "lucide-react";
+import { LogOut, User, Shield, Settings } from "lucide-react";
 import Link from "next/link";
 
 export function UserMenu() {
@@ -45,6 +45,14 @@ export function UserMenu() {
             >
               <User className="h-4 w-4" />
               프로필
+            </Link>
+            <Link
+              href="/settings"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-t-hover"
+            >
+              <Settings className="h-4 w-4" />
+              설정
             </Link>
             {isAdmin && (
               <Link

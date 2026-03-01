@@ -1,0 +1,4 @@
+-- This migration was originally applied directly to the database.
+-- Tables: checkpoints, favorites
+-- Columns: courses.designer
+-- Preserved here for migration history compatibility.

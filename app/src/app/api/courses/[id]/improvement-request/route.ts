@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { sendAdminNotification } from "@/lib/push";
 
 export async function GET(
   _request: NextRequest,
@@ -76,6 +77,10 @@ export async function PUT(
         status: "pending",
       },
     });
+    sendAdminNotification(
+      "improvement",
+      `새 수정 요청: ${course.name} (${cleanCategory || "기타"})`
+    ).catch((err) => console.error("Push error:", err));
   } else if (existing.status === "pending") {
     // Update existing pending request
     result = await prisma.improvementRequest.update({
@@ -93,6 +98,10 @@ export async function PUT(
         adminNote: null,
       },
     });
+    sendAdminNotification(
+      "improvement",
+      `수정 요청 재오픈: ${course.name} (${cleanCategory || "기타"})`
+    ).catch((err) => console.error("Push error:", err));
   }
 
   return NextResponse.json(result);

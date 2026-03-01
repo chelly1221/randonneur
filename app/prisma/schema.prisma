@@ -37,6 +37,9 @@ model Course {
   favorites            Favorite[]
   reviews              Review[]
   improvementRequests  ImprovementRequest[]
+  journals             Journal[]
+  seasonalPicks        SeasonalPick[]
+  events               Event[]
 
   @@map("courses")
 }
@@ -47,6 +50,9 @@ model User {
   displayName String   @map("display_name")
   email       String   @unique
   role        String   @default("user")
+  bio         String?
+  avatarKey   String?  @map("avatar_key")
+  status      String   @default("active")
   createdAt   DateTime @default(now()) @map("created_at")
 
   completions                Completion[]
@@ -54,6 +60,22 @@ model User {
   reviews                    Review[]
   improvementRequests        ImprovementRequest[]
   checkpointPhotoSubmissions CheckpointPhotoSubmission[]
+  comments                   Comment[]
+  likes                      Like[]
+  reports                    Report[]
+  userBadges                 UserBadge[]
+  pushSubscriptions          PushSubscription[]
+  followers                  Follow[]  @relation("UserFollowers")
+  following                  Follow[]  @relation("UserFollowing")
+  bikes                      Bike[]
+  journals                   Journal[]
+  reviewPhotos               ReviewPhoto[]
+  sharedRoutes               SharedRoute[]
+  events                     Event[]
+  eventParticipations        EventParticipant[]
+  polls                      Poll[]
+  pollVotes                  PollVote[]
+  notifications              Notification[]
 
   @@map("users")
 }
@@ -71,6 +93,8 @@ model Completion {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
+  @@index([userId])
+  @@index([completedAt])
   @@map("completions")
 }
 
@@ -131,10 +155,55 @@ model Review {
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
 
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course   Course        @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  comments Comment[]
+  likes    Like[]
+  reports  Report[]
+  photos   ReviewPhoto[]
 
+  @@index([userId])
+  @@index([createdAt])
   @@map("reviews")
+}
+
+model Comment {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  reviewId  String   @map("review_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  parentId  String?  @map("parent_id") @db.Uuid
+  content   String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  review   Review    @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent   Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  children Comment[] @relation("CommentReplies")
+  likes    Like[]
+  reports  Report[]
+
+  @@index([reviewId])
+  @@index([parentId])
+  @@map("comments")
+}
+
+model Like {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  reviewId  String?  @map("review_id") @db.Uuid
+  commentId String?  @map("comment_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  review  Review?  @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  comment Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, reviewId])
+  @@unique([userId, commentId])
+  @@index([reviewId])
+  @@index([commentId])
+  @@map("likes")
 }
 
 model ImprovementRequest {
@@ -168,4 +237,281 @@ model CheckpointPhotoSubmission {
   user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("checkpoint_photo_submissions")
+}
+
+model Report {
+  id         String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  reporterId String   @map("reporter_id") @db.Uuid
+  reviewId   String?  @map("review_id") @db.Uuid
+  commentId  String?  @map("comment_id") @db.Uuid
+  reason     String
+  detail     String?
+  status     String   @default("pending")
+  adminNote  String?  @map("admin_note")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  reporter User     @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  review   Review?  @relation(fields: [reviewId], references: [id], onDelete: SetNull)
+  comment  Comment? @relation(fields: [commentId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@map("reports")
+}
+
+model Badge {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  slug        String   @unique
+  name        String
+  description String
+  icon        String
+  criteria    Json     @db.JsonB
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  userBadges UserBadge[]
+
+  @@map("badges")
+}
+
+model UserBadge {
+  id       String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId   String   @map("user_id") @db.Uuid
+  badgeId  String   @map("badge_id") @db.Uuid
+  earnedAt DateTime @default(now()) @map("earned_at")
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badge Badge @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, badgeId])
+  @@map("user_badges")
+}
+
+model PushSubscription {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("push_subscriptions")
+}
+
+// ========================================
+// New community feature models
+// ========================================
+
+model Follow {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  followerId  String   @map("follower_id") @db.Uuid
+  followingId String   @map("following_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  follower  User @relation("UserFollowing", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("UserFollowers", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+  @@map("follows")
+}
+
+model Bike {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  name      String
+  brand     String?
+  model     String?
+  year      Int?
+  type      String?  // road, gravel, touring, etc.
+  imageKey  String?  @map("image_key")
+  isDefault Boolean  @default(false) @map("is_default")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("bikes")
+}
+
+model Journal {
+  id        String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  courseId   String?   @map("course_id") @db.Uuid
+  title     String
+  content   String
+  rideDate  DateTime? @map("ride_date")
+  distance  Float?
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  user   User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course Course?        @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  photos JournalPhoto[]
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("journals")
+}
+
+model JournalPhoto {
+  id        String  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  journalId String  @map("journal_id") @db.Uuid
+  imageKey  String  @map("image_key")
+  caption   String?
+  sortOrder Int     @default(0) @map("sort_order")
+
+  journal Journal @relation(fields: [journalId], references: [id], onDelete: Cascade)
+
+  @@index([journalId])
+  @@map("journal_photos")
+}
+
+model ReviewPhoto {
+  id        String  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  reviewId  String  @map("review_id") @db.Uuid
+  userId    String  @map("user_id") @db.Uuid
+  imageKey  String  @map("image_key")
+  caption   String?
+  sortOrder Int     @default(0) @map("sort_order")
+
+  review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([reviewId])
+  @@map("review_photos")
+}
+
+model SharedRoute {
+  id            String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  title         String
+  description   String?
+  distance      Float?
+  elevation     Float?
+  region        String?
+  gpxFileKey    String   @map("gpx_file_key")
+  downloadCount Int      @default(0) @map("download_count")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("shared_routes")
+}
+
+model SeasonalPick {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  courseId     String   @map("course_id") @db.Uuid
+  season      String   // spring, summer, autumn, winter
+  year        Int
+  description String?
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, season, year])
+  @@map("seasonal_picks")
+}
+
+model Event {
+  id              String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId          String    @map("user_id") @db.Uuid
+  title           String
+  description     String?
+  eventType       String    @map("event_type") // brevet, group_ride, festival, other
+  courseId         String?   @map("course_id") @db.Uuid
+  location        String?
+  startDate       DateTime  @map("start_date")
+  endDate         DateTime? @map("end_date")
+  maxParticipants Int?      @map("max_participants")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course       Course?            @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  participants EventParticipant[]
+
+  @@index([startDate])
+  @@index([userId])
+  @@map("events")
+}
+
+model EventParticipant {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  eventId   String   @map("event_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  status    String   @default("going") // going, interested, cancelled
+  createdAt DateTime @default(now()) @map("created_at")
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+  @@map("event_participants")
+}
+
+model Poll {
+  id          String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  title       String
+  description String?
+  endsAt      DateTime? @map("ends_at")
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  user    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  options PollOption[]
+
+  @@index([createdAt])
+  @@map("polls")
+}
+
+model PollOption {
+  id        String @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  pollId    String @map("poll_id") @db.Uuid
+  label     String
+  sortOrder Int    @default(0) @map("sort_order")
+
+  poll  Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  votes PollVote[]
+
+  @@index([pollId])
+  @@map("poll_options")
+}
+
+model PollVote {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  optionId  String   @map("option_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  option PollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  user   User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([optionId, userId])
+  @@map("poll_votes")
+}
+
+model Notification {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  type      String   // comment, follow, event_reminder, like, completion
+  title     String
+  message   String
+  link      String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+  @@index([createdAt])
+  @@map("notifications")
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { uploadGpx } from "@/lib/minio";
+import { checkAndAwardBadges } from "@/lib/badges";
 
 export async function POST(request: NextRequest) {
   const session = await auth();
@@ -57,6 +58,9 @@ export async function POST(request: NextRequest) {
     },
     include: { course: true },
   });
+
+  // Award badges asynchronously (don't block the response)
+  checkAndAwardBadges(user.id).catch(() => {});
 
   return NextResponse.json(completion, { status: 201 });
 }

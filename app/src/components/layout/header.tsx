@@ -6,12 +6,14 @@ import { useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import { UserMenu } from "@/components/auth/user-menu";
 import { ThemeSelector } from "@/components/layout/theme-selector";
+import { SearchBar } from "@/components/layout/search-bar";
 import { Menu, X, Shield } from "lucide-react";
 import { useState } from "react";
 
 const navItems = [
   { href: "/", label: "홈" },
   { href: "/courses", label: "코스" },
+  { href: "/community", label: "커뮤니티" },
 ];
 
 export function Header() {
@@ -22,20 +24,23 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-white/10 bg-t-header text-white">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
-        <Link href="/" className="flex items-center">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="3chan" className="h-8 w-auto" />
-        </Link>
+      <div className="mx-auto flex h-16 max-w-7xl items-center px-4">
+        {/* Left */}
+        <div className="flex flex-1 items-center">
+          <Link href="/" className="flex items-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.png" alt="3chan" className="h-8 w-auto" />
+          </Link>
+        </div>
 
-        {/* Desktop nav */}
-        <nav className="hidden md:flex items-center gap-6">
+        {/* Center — Desktop nav */}
+        <nav className="hidden md:flex items-center justify-center gap-6">
           {navItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}
               className={cn(
-                "text-sm font-medium transition-colors",
+                "text-sm font-medium transition-colors whitespace-nowrap",
                 pathname === item.href
                   ? "text-t-accent"
                   : "text-white/70 hover:text-white"
@@ -48,7 +53,7 @@ export function Header() {
             <Link
               href="/admin"
               className={cn(
-                "flex items-center gap-1 text-sm font-medium transition-colors",
+                "flex items-center gap-1 text-sm font-medium transition-colors whitespace-nowrap",
                 pathname.startsWith("/admin")
                   ? "text-t-accent"
                   : "text-white/70 hover:text-white"
@@ -60,7 +65,9 @@ export function Header() {
           )}
         </nav>
 
-        <div className="flex items-center gap-2">
+        {/* Right */}
+        <div className="flex flex-1 items-center justify-end gap-2">
+          <SearchBar />
           <ThemeSelector />
           <UserMenu />
           <button

@@ -4,6 +4,16 @@ import { NextResponse } from "next/server";
 export default auth((req) => {
   const { pathname } = req.nextUrl;
 
+  // Allow banned page itself
+  if (pathname === "/banned") {
+    return NextResponse.next();
+  }
+
+  // Check banned status for all authenticated users
+  if (req.auth?.user?.status === "banned") {
+    return NextResponse.redirect(new URL("/banned", req.url));
+  }
+
   // Protect admin routes
   if (pathname.startsWith("/admin")) {
     if (!req.auth) {
@@ -22,9 +32,16 @@ export default auth((req) => {
     }
   }
 
+  // Protect settings routes
+  if (pathname.startsWith("/settings")) {
+    if (!req.auth) {
+      return NextResponse.redirect(new URL("/auth/login", req.url));
+    }
+  }
+
   return NextResponse.next();
 });
 
 export const config = {
-  matcher: ["/admin/:path*", "/profile/:path*"],
+  matcher: ["/admin/:path*", "/profile/:path*", "/settings/:path*", "/banned"],
 };

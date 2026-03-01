@@ -4,7 +4,9 @@ import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Bike, Mountain, Map, Trophy } from "lucide-react";
+import { BadgeDisplay } from "@/components/user/badge-display";
+import { UserAvatar } from "@/components/user/user-avatar";
+import { Bike, Mountain, Map, Trophy, ExternalLink, Settings } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
@@ -30,15 +32,44 @@ interface CompletionData {
   };
 }
 
+interface UserProfile {
+  id: string;
+  displayName: string;
+  bio: string | null;
+  avatarKey: string | null;
+}
+
+interface BadgeData {
+  slug: string;
+  name: string;
+  icon: string;
+  description: string;
+  earnedAt: string;
+}
+
 export default function ProfilePage() {
   const { data: session } = useSession();
   const [data, setData] = useState<CompletionData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [badges, setBadges] = useState<BadgeData[]>([]);
 
   useEffect(() => {
-    fetch("/api/completions/me")
-      .then((r) => r.json())
-      .then(setData)
+    Promise.all([
+      fetch("/api/completions/me").then((r) => r.json()),
+      fetch("/api/users/me").then((r) => r.json()),
+    ])
+      .then(([completionData, profileData]) => {
+        setData(completionData);
+        setProfile(profileData);
+        // Fetch badges using the profile ID
+        if (profileData.id) {
+          fetch(`/api/users/${profileData.id}`)
+            .then((r) => r.json())
+            .then((d) => setBadges(d.user?.badges ?? []))
+            .catch(() => {});
+        }
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
@@ -69,12 +100,48 @@ export default function ProfilePage() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold">프로필</h1>
-        <p className="text-t-muted">
-          {session.user.name ?? session.user.email}
-        </p>
+      <div className="mb-8 flex items-start gap-4">
+        <UserAvatar
+          displayName={session.user.name ?? "U"}
+          avatarKey={profile?.avatarKey}
+          size="lg"
+        />
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold">프로필</h1>
+            {profile?.id && (
+              <Link
+                href={`/users/${profile.id}`}
+                className="text-t-muted hover:text-t-text"
+                title="공개 프로필 보기"
+              >
+                <ExternalLink className="h-4 w-4" />
+              </Link>
+            )}
+            <Link
+              href="/settings"
+              className="text-t-muted hover:text-t-text"
+              title="설정"
+            >
+              <Settings className="h-4 w-4" />
+            </Link>
+          </div>
+          <p className="text-t-muted">
+            {session.user.name ?? session.user.email}
+          </p>
+          {profile?.bio && (
+            <p className="mt-1 text-sm text-t-text">{profile.bio}</p>
+          )}
+        </div>
       </div>
+
+      {/* Badges */}
+      {badges.length > 0 && (
+        <div className="mb-6">
+          <h2 className="mb-2 text-sm font-semibold">획득한 뱃지</h2>
+          <BadgeDisplay badges={badges} size="md" />
+        </div>
+      )}
 
       <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {statCards.map((stat) => (

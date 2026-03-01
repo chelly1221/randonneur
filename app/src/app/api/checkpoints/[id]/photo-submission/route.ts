@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { uploadGpx, ensureBucket, deleteGpx } from "@/lib/minio";
 import { randomUUID } from "crypto";
+import { sendAdminNotification } from "@/lib/push";
 
 export async function POST(
   request: NextRequest,
@@ -11,6 +12,16 @@ export async function POST(
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { keycloakId: session.user.id },
+  });
+  if (!user) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+  if (user.status !== "active") {
+    return NextResponse.json({ error: "Account restricted" }, { status: 403 });
   }
 
   const { id: checkpointId } = await params;
@@ -32,7 +43,7 @@ export async function POST(
     return NextResponse.json({ error: "Invalid file type" }, { status: 400 });
   }
 
-  const userId = session.user.id as string;
+  const userId = user.id;
 
   // Check for existing pending submission by this user for this checkpoint
   const existing = await prisma.checkpointPhotoSubmission.findFirst({
@@ -67,6 +78,11 @@ export async function POST(
       },
     });
   }
+
+  sendAdminNotification(
+    "photo",
+    `CP 사진 제출: ${checkpoint.name}`
+  ).catch((err) => console.error("Push error:", err));
 
   return NextResponse.json({
     id: submission.id,

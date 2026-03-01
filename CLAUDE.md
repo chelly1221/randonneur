@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**URL:** https://randonneur.3chan.kr
+**URL:** https://audax.3chan.kr
 **Purpose:** A self-hosted platform for Korean randonneuring (long-distance cycling) permanent courses. 187 real courses imported from the legacy site at https://archive1.3chan.kr/randonneur-course/.
 **Legacy reference code:** `~/www/wordpress/wp-content/plugins/permanent-course` (WordPress plugin powering the legacy site)
 
@@ -65,11 +65,30 @@ audax/
 │       │   ├── layout.tsx            # Root layout (theme provider, session)
 │       │   ├── page.tsx              # Landing page
 │       │   ├── globals.css
+│       │   ├── manifest.ts           # PWA manifest
+│       │   ├── robots.ts             # Robots.txt
+│       │   ├── sitemap.ts            # Sitemap generator
 │       │   │
 │       │   ├── courses/
 │       │   │   ├── page.tsx          # Course explorer (map + list + filters)
 │       │   │   └── [id]/
-│       │   │       └── page.tsx      # Course detail + map + elevation
+│       │   │       └── page.tsx      # Course detail + map + elevation + reviews
+│       │   │
+│       │   ├── community/
+│       │   │   ├── layout.tsx        # Community layout with tab navigation
+│       │   │   ├── page.tsx          # Community home (high-density dashboard)
+│       │   │   ├── journals/         # Ride journals (list, create, detail, edit)
+│       │   │   ├── gallery/          # Photo gallery
+│       │   │   ├── events/           # Official events (calendar, detail, create/edit — admin only)
+│       │   │   ├── routes/           # Shared routes (hidden from tabs)
+│       │   │   └── polls/            # Community polls
+│       │   │
+│       │   ├── users/
+│       │   │   └── [id]/page.tsx     # Public user profile
+│       │   │
+│       │   ├── settings/
+│       │   │   ├── page.tsx          # User settings
+│       │   │   └── bikes/page.tsx    # Bike garage
 │       │   │
 │       │   ├── auth/
 │       │   │   └── login/
@@ -81,21 +100,12 @@ audax/
 │       │   ├── admin/
 │       │   │   ├── layout.tsx        # Admin sidebar layout
 │       │   │   ├── page.tsx          # Dashboard overview
-│       │   │   ├── courses/
-│       │   │   │   ├── page.tsx      # Course management (list)
-│       │   │   │   ├── new/
-│       │   │   │   │   └── page.tsx  # Create new course
-│       │   │   │   ├── [id]/
-│       │   │   │   │   └── edit/
-│       │   │   │   │       └── page.tsx  # Edit course + checkpoints
-│       │   │   │   └── import/
-│       │   │   │       └── page.tsx  # Bulk import from legacy
-│       │   │   ├── users/
-│       │   │   │   └── page.tsx      # User management
-│       │   │   ├── gpx/
-│       │   │   │   └── page.tsx      # GPX file management (MinIO)
-│       │   │   └── system/
-│       │   │       └── page.tsx      # System health checks
+│       │   │   ├── courses/          # Course CRUD + import
+│       │   │   ├── users/            # User management (ban/role)
+│       │   │   ├── gpx/              # GPX file management (MinIO)
+│       │   │   ├── system/           # System health checks + backups
+│       │   │   ├── reports/          # Content report review
+│       │   │   └── seasonal/         # Seasonal picks management
 │       │   │
 │       │   └── api/
 │       │       ├── auth/[...nextauth]/route.ts
@@ -131,13 +141,31 @@ audax/
 │       │   │   ├── course-explorer.tsx     # Map + list + inline filters
 │       │   │   ├── course-card.tsx         # Course list item card
 │       │   │   ├── course-detail-client.tsx # Course detail client component
+│       │   │   ├── course-reviews.tsx      # Reviews on course detail
 │       │   │   ├── elevation-profile.tsx   # Recharts elevation chart
 │       │   │   ├── completion-form.tsx     # Mark course completed
 │       │   │   ├── favorite-button.tsx     # Toggle favorite
+│       │   │   ├── like-button.tsx         # Like toggle
+│       │   │   ├── comment-section.tsx     # Comments
+│       │   │   ├── report-button.tsx       # Report content
+│       │   │   ├── popular-courses.tsx     # Popular courses list
 │       │   │   └── geolocation-tracker.tsx # GPS tracking on map
+│       │   ├── community/
+│       │   │   ├── recent-reviews.tsx      # Compact review grid
+│       │   │   ├── recent-completions.tsx  # Compact completion list
+│       │   │   ├── activity-timeline.tsx   # Activity feed
+│       │   │   ├── event-calendar.tsx      # Event calendar/list
+│       │   │   ├── event-card.tsx          # Event card
+│       │   │   ├── event-form.tsx          # Event create/edit form
+│       │   │   ├── event-detail-client.tsx # Event detail with participation
+│       │   │   └── notification-bell.tsx   # Notification indicator
+│       │   ├── user/
+│       │   │   ├── user-avatar.tsx         # User avatar component
+│       │   │   └── user-popover.tsx        # User preview popover
 │       │   ├── layout/
 │       │   │   ├── header.tsx         # Navigation + auth menu
-│       │   │   └── theme-selector.tsx # Theme picker dropdown
+│       │   │   ├── theme-selector.tsx # Theme picker dropdown
+│       │   │   └── search-bar.tsx     # Global search
 │       │   ├── auth/
 │       │   │   ├── session-provider.tsx # NextAuth session wrapper
 │       │   │   ├── login-button.tsx    # Keycloak login/logout
@@ -147,13 +175,7 @@ audax/
 │       │   │   ├── checkpoint-form.tsx # Checkpoint management
 │       │   │   ├── delete-course-button.tsx
 │       │   │   └── archive-toggle-button.tsx
-│       │   └── ui/
-│       │       ├── button.tsx
-│       │       ├── card.tsx
-│       │       ├── input.tsx
-│       │       ├── select.tsx
-│       │       ├── badge.tsx
-│       │       └── range-slider.tsx
+│       │   └── ui/                    # Shared UI primitives
 │       │
 │       ├── lib/
 │       │   ├── auth.ts               # Auth.js v5 config + Keycloak provider
@@ -164,6 +186,9 @@ audax/
 │       │   ├── geo-utils.ts          # PostGIS geometry helpers
 │       │   ├── course-colors.ts      # Color mapping by region/distance
 │       │   ├── theme.ts              # Theme definitions (7 themes)
+│       │   ├── badges.ts             # Badge definitions and logic
+│       │   ├── notifications.ts      # Notification helpers
+│       │   ├── user-guard.ts         # Active user validation middleware
 │       │   └── utils.ts              # General utilities (cn, etc.)
 │       │
 │       └── types/
@@ -227,19 +252,66 @@ Unified map + list view with inline filters:
 - GPS geolocation tracking on map
 - Favorite toggle (logged-in users)
 - Completion logging with date and notes
+- Reviews with difficulty rating, completion status, photos, comments, likes
 - GPX file download
+- Report and improvement request features
+
+### Community (`/community`)
+Tabs: 홈, 후기, 갤러리, 이벤트, 투표
+
+#### Community Home (`/community`)
+High-density 2-column layout:
+- **Left column (3/5):** 최근 후기 — 2-column grid, compact review cards with user, status badge, stars, course link, content preview, engagement counts
+- **Right column (2/5):**
+  - 월간 인기 코스 — Ranked 1-5 compact list (by engagement score: completions×3 + favorites×2 + reviews×1)
+  - 활동 피드 — Compact timeline of completions and reviews, filterable (전체/팔로잉/내 활동)
+  - 최근 완주 — Compact one-line list of recent completions
+
+#### Journals / Reviews (`/community/journals`)
+- User-created ride journals with rich text editor
+- Photo upload support
+- Comments and likes
+
+#### Gallery (`/community/gallery`)
+- Photo gallery from reviews and journals
+
+#### Events (`/community/events`)
+- **Official events only** — admin-only creation/edit/delete
+- Calendar view (month grid desktop, week strip mobile) + list view
+- Event types: 브레베, 그룹라이드, 자전거 축제, 기타
+- Participation system: 참가/관심있음 with capacity limits
+- Linked to courses (optional)
+
+#### Polls (`/community/polls`)
+- Community polls with multiple options
+- Vote tracking
+
+### Social Features
+- **User Profiles** (`/users/[id]`) — Public profile with completions, reviews, badges, follow stats
+- **Follow System** — Follow other riders, see their activity in feed
+- **Comments** — On reviews and journals
+- **Likes** — On reviews and comments
+- **Reports** — Report inappropriate content (admin review)
+- **Badges** — Achievement badges based on completions, distance, etc.
+- **Notifications** — In-app notification system
+- **Search** — Full-text search across courses, users, reviews
 
 ### Authentication
 - Login via Keycloak OIDC (Auth.js v5 provider)
+- Google IdP integration (optional)
 - Registration handled by Keycloak directly
 - Roles: `admin`, `user` (synced from Keycloak)
+- User status: `active`, `banned` (banned users redirected to `/banned`)
 - Session-based with JWT
 
 ### User Features (logged in)
-- Mark courses as completed (personal log with date and notes)
+- Mark courses as completed (with completion status: success/DNF/DNQ/DNS/partial)
+- Write reviews with difficulty rating and photos
 - Favorite courses
-- Profile page with completion statistics
+- Profile page with completion statistics, badges, bike garage
 - GPS location tracking during rides
+- Settings page for profile customization
+- Follow other users
 
 ### Admin Dashboard (`/admin`)
 - **Dashboard Overview** — Course count, user count, download stats
@@ -248,9 +320,14 @@ Unified map + list view with inline filters:
   - Checkpoint management with image upload
   - Archive/unarchive courses (soft delete)
   - Bulk import from legacy site or CSV
-- **User Management** — View users synced from Keycloak
+- **User Management** — View/manage users, ban/unban, role changes
 - **GPX Management** — Browse/manage GPX files in MinIO
 - **System Status** — Health checks for all services (postgres, keycloak, minio, valhalla)
+- **Reports** — Review user-submitted reports
+- **Seasonal Picks** — Manage seasonal course recommendations
+- **Improvement Requests** — Review course improvement suggestions
+- **Checkpoint Photos** — Review user-submitted checkpoint photos
+- **Backups** — Create, download, upload, restore database backups
 
 ### Theme System
 7 visual themes with weather effects:
@@ -261,22 +338,42 @@ Unified map + list view with inline filters:
 
 ## Database Schema (PostGIS)
 
-6 tables, all with UUID primary keys:
+All tables use UUID primary keys. PostgreSQL extensions: `postgis`, `uuid-ossp`.
 
+### Core Tables
 - **`courses`** — id, course_number, name, distance_km, elevation_m, estimated_time, start_location, end_location, region, category, tags[], description, designer, gpx_file_key, archived, geom (PostGIS LineString 4326), created_at, updated_at
-- **`users`** — id, keycloak_id, display_name, email, role, created_at
-- **`completions`** — id, user_id, course_id, completed_at, gpx_file_key, notes, created_at
+- **`users`** — id, keycloak_id, display_name, email, role, status (active/banned), avatar_key, bio, created_at
+- **`completions`** — id, user_id, course_id, completed_at, completion_status (success/dnf/dnq/dns/partial), gpx_file_key, notes, created_at
 - **`downloads`** — id, course_id, downloaded_at, ip_hash
 - **`checkpoints`** — id, course_id, name, description, distance_km, image_key, sort_order
-- **`favorites`** — id, user_id, course_id (unique constraint on user+course)
+- **`favorites`** — id, user_id, course_id (unique on user+course)
 
-PostgreSQL extensions: `postgis`, `uuid-ossp`
+### Community Tables
+- **`reviews`** — id, user_id, course_id, completion_status, difficulty (1-5), content (HTML), created_at
+- **`comments`** — id, user_id, review_id, content, created_at
+- **`likes`** — id, user_id, review_id (unique on user+review)
+- **`follows`** — id, follower_id, following_id (unique on follower+following)
+- **`reports`** — id, reporter_id, target_type, target_id, reason, status, created_at
+- **`journals`** — id, user_id, title, content, created_at
+- **`review_photos`** — id, review_id, image_key, sort_order
+
+### Events & Features
+- **`events`** — id, user_id, title, description, event_type, course_id, location, start_date, end_date, max_participants, created_at (admin-only creation)
+- **`event_participants`** — id, event_id, user_id, status (going/interested/cancelled)
+- **`seasonal_picks`** — id, course_id, season, year, description, sort_order
+- **`badges`** — id, user_id, badge_type, earned_at
+- **`notifications`** — id, user_id, type, title, body, read, data, created_at
+- **`polls`** — id, user_id, title, options, created_at
+- **`shared_routes`** — id, user_id, title, description, distance, elevation, region, gpx_file_key, download_count
+- **`push_subscriptions`** — id, user_id, endpoint, keys, created_at
+- **`bikes`** — id, user_id, name, brand, model, year, is_primary
 
 ## API Routes (Next.js Route Handlers)
 
 ```
 # Auth
 GET/POST  /api/auth/[...nextauth]       — Auth.js endpoints
+POST      /api/auth/keycloak-logout      — Keycloak backchannel logout
 
 # Courses
 GET       /api/courses                   — List courses (filters: region, distance, category, q, archived)
@@ -286,24 +383,76 @@ PUT       /api/courses/:id               — Update course (admin)
 DELETE    /api/courses/:id               — Delete course (admin)
 GET       /api/courses/:id/gpx           — Download GPX file from MinIO
 GET       /api/courses/:id/route-info    — Valhalla route data
+GET       /api/courses/:id/geometry      — Course GeoJSON geometry
 GET/POST  /api/courses/:id/checkpoints   — List/create checkpoints (admin)
+GET/POST  /api/courses/:id/reviews       — Course reviews
+POST      /api/courses/:id/improvement-request — Submit improvement request
 POST      /api/courses/bulk-import       — Bulk import courses (admin)
 POST      /api/courses/batch-download    — Batch GPX download as ZIP
+GET       /api/courses/popular           — Popular courses by engagement score
+GET       /api/courses/recommendations   — Personalized recommendations (user) / popular (anonymous)
 
-# Completions
+# Completions & Reviews
 POST      /api/completions               — Log completion (user)
 GET       /api/completions/me            — My completions (user)
+GET/PUT/DEL /api/reviews/:id             — Review CRUD
+GET/POST  /api/reviews/:id/comments      — Review comments
+POST      /api/reviews/:id/photos        — Upload review photos
 
-# Favorites
+# Social
 POST      /api/favorites                 — Toggle favorite (user)
 GET       /api/favorites/me              — My favorites (user)
+POST      /api/likes                     — Toggle like (user)
+GET       /api/likes/me                  — My likes (user)
+POST      /api/follows                   — Follow/unfollow (user)
+GET       /api/follows/me                — My follows (user)
+POST      /api/reports                   — Submit report (user)
+DELETE    /api/comments/:id              — Delete comment (owner/admin)
+
+# Community
+GET       /api/community/recent-reviews      — Recent reviews
+GET       /api/community/recent-completions  — Recent completions
+GET       /api/activity                      — Activity feed (all/following/mine)
+GET/POST  /api/journals                      — Ride journals
+GET/PUT/DEL /api/journals/:id                — Journal CRUD
+GET/POST  /api/events                        — Events (GET public, POST admin-only)
+GET/PUT/DEL /api/events/:id                  — Event CRUD (PUT/DEL admin-only)
+POST      /api/events/:id/participate        — Event participation (user)
+GET/POST  /api/polls                         — Polls
+POST      /api/polls/:id/vote               — Vote on poll
+GET       /api/gallery                       — Photo gallery
+GET/POST  /api/shared-routes                 — Shared routes
+GET       /api/seasonal                      — Seasonal picks
+GET       /api/badges                        — User badges
+
+# Users
+GET       /api/users/:id                 — Public user profile
+GET       /api/users/:id/followers       — User follower list
+GET       /api/users/:id/preview         — User popover preview
+GET       /api/users/me                  — Current user
+PUT       /api/users/me/avatar           — Upload avatar
+
+# Search
+GET       /api/search                    — Full-text search (courses, users, reviews)
+
+# Notifications
+GET       /api/notifications             — User notifications
+POST      /api/notifications/read        — Mark notifications read
 
 # Admin
-GET       /api/admin/stats               — Dashboard statistics (admin)
-GET       /api/admin/users               — User list (admin)
-POST      /api/admin/upload-gpx          — Upload GPX to MinIO (admin)
-GET       /api/admin/gpx-list            — List GPX files in MinIO (admin)
-POST      /api/admin/upload-image        — Upload checkpoint image (admin)
+GET       /api/admin/stats               — Dashboard statistics
+GET       /api/admin/users               — User list
+PUT       /api/admin/users/:id           — Update user (ban/role)
+POST      /api/admin/upload-gpx          — Upload GPX to MinIO
+GET       /api/admin/gpx-list            — List GPX files in MinIO
+POST      /api/admin/upload-image        — Upload checkpoint image
+GET/POST  /api/admin/reports             — Manage reports
+PUT       /api/admin/reports/:id         — Update report status
+GET/POST  /api/admin/seasonal            — Manage seasonal picks
+GET/POST  /api/admin/improvement-requests — Manage improvement requests
+GET/POST  /api/admin/backups             — Backup management
+POST      /api/admin/backups/restore     — Restore from backup
+POST      /api/admin/settings            — Admin settings
 
 # System
 GET       /api/health                    — Service health checks
@@ -430,9 +579,17 @@ Components use semantic theme tokens (`t-surface`, `t-text`, `t-primary`, `t-bor
 
 ## Planned / Future Features
 
-These are designed or partially implemented but not yet fully wired:
-
 - **Download analytics** — `downloads` table exists in schema but API doesn't log downloads yet
 - **Valhalla turn-by-turn** — `/api/courses/:id/route-info` endpoint exists but Valhalla routing not fully integrated with the UI
 - **User GPX upload verification** — completion form accepts notes but GPX proof upload not implemented
 - **Nginx reverse proxy** — for SSL termination and caching, not yet configured
+- **PWA** — manifest.ts and service worker exist but push notifications not fully wired
+
+## CRITICAL: Data Safety Rules
+
+- **NEVER run destructive database operations** (`DROP`, `DELETE`, `TRUNCATE`, volume removal, `docker compose down -v`, `prisma migrate reset`) without explicit user confirmation.
+- **NEVER rebuild containers or reset volumes** in a way that could wipe user data (completions, users, favorites, courses).
+- **Always use `INSERT` or `UPDATE`** for data changes — never delete existing rows unless specifically asked.
+- **Before running migrations**, ensure they are additive (adding columns/tables) rather than destructive (dropping columns/tables).
+- **Back up before risky operations** — if a task could potentially affect data, suggest or perform a backup first (`./scripts/migrate-export.sh`).
+- **User data is precious** — completions, favorites, and user records represent real riding history that cannot be recreated.

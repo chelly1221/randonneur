@@ -29,12 +29,12 @@
       "clientAuthenticatorType": "client-secret",
       "secret": "Scott122001&&",
       "redirectUris": [
-        "https://randonneur.3chan.kr/*",
+        "https://audax.3chan.kr/*",
         "http://localhost:3100/*",
         "http://localhost:3000/*"
       ],
       "webOrigins": [
-        "https://randonneur.3chan.kr",
+        "https://audax.3chan.kr",
         "http://localhost:3100",
         "http://localhost:3000"
       ],
@@ -58,6 +58,41 @@
           }
         }
       ]
+    }
+  ],
+  "identityProviders": [
+    {
+      "alias": "google",
+      "displayName": "Google",
+      "providerId": "google",
+      "enabled": true,
+      "trustEmail": true,
+      "storeToken": true,
+      "addReadTokenRoleOnCreate": true,
+      "firstBrokerLoginFlowAlias": "first broker login",
+      "config": {
+        "clientId": "YOUR_GOOGLE_CLIENT_ID",
+        "clientSecret": "YOUR_GOOGLE_CLIENT_SECRET",
+        "syncMode": "FORCE",
+        "defaultScope": "openid profile email",
+        "guiOrder": "1"
+      }
+    },
+    {
+      "alias": "naver",
+      "displayName": "Naver",
+      "providerId": "naver",
+      "enabled": true,
+      "trustEmail": true,
+      "storeToken": true,
+      "addReadTokenRoleOnCreate": true,
+      "firstBrokerLoginFlowAlias": "first broker login",
+      "config": {
+        "clientId": "eTed5pzFFTskDsOtBObr",
+        "clientSecret": "fdV1ATNorS",
+        "syncMode": "FORCE",
+        "guiOrder": "2"
+      }
     }
   ]
 }

@@ -2,6 +2,8 @@ import { prisma } from "@/lib/db";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CourseCard } from "@/components/course/course-card";
+import { PopularCourses } from "@/components/course/popular-courses";
+import { CourseRecommendations } from "@/components/course/course-recommendations";
 import { Bike, Map, Mountain, Users } from "lucide-react";
 import Link from "next/link";
 
@@ -73,9 +75,25 @@ export default async function HomePage() {
         </div>
       </section>
 
+      {/* Popular courses */}
+      <section className="mx-auto max-w-7xl px-4 py-12">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-xl font-bold">인기 코스</h2>
+        </div>
+        <PopularCourses />
+      </section>
+
+      {/* Recommendations */}
+      <section className="mx-auto max-w-7xl px-4 pb-12">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-xl font-bold">추천 코스</h2>
+        </div>
+        <CourseRecommendations />
+      </section>
+
       {/* Recent courses */}
       {recentCourses.length > 0 && (
-        <section className="mx-auto max-w-7xl px-4 py-12">
+        <section className="mx-auto max-w-7xl px-4 pb-12">
           <div className="mb-6 flex items-center justify-between">
             <h2 className="text-xl font-bold">최근 코스</h2>
             <Link

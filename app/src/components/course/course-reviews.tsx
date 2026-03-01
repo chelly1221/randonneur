@@ -4,7 +4,13 @@ import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { Badge } from "@/components/ui/badge";
 import { RichTextEditor, ReviewContent } from "@/components/ui/rich-text-editor";
+import { LikeButton } from "./like-button";
+import { CommentSection } from "./comment-section";
+import { ReportButton } from "./report-button";
+import { UserAvatar } from "@/components/user/user-avatar";
 import { Pencil, Trash2, ChevronDown, ChevronUp } from "lucide-react";
+import Link from "next/link";
+import { ReviewPhotosDisplay } from "./review-photos-display";
 
 interface ReviewUser {
   id: string;
@@ -19,6 +25,7 @@ interface Review {
   content: string;
   createdAt: string;
   user: ReviewUser;
+  _count?: { comments: number; likes: number };
 }
 
 const COMPLETION_LABELS: Record<string, string> = {
@@ -103,6 +110,10 @@ export function CourseReviews({ courseId, onWriteClick }: CourseReviewsProps) {
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(false);
 
+  // Like state
+  const [likedReviewIds, setLikedReviewIds] = useState<string[]>([]);
+  const [likedCommentIds, setLikedCommentIds] = useState<string[]>([]);
+
   // Edit state
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editStatus, setEditStatus] = useState("success");
@@ -123,6 +134,17 @@ export function CourseReviews({ courseId, onWriteClick }: CourseReviewsProps) {
   useEffect(() => {
     fetchReviews();
   }, [fetchReviews]);
+
+  useEffect(() => {
+    if (!session) return;
+    fetch("/api/likes/me")
+      .then((r) => r.json())
+      .then((data: { reviewIds: string[]; commentIds: string[] }) => {
+        setLikedReviewIds(data.reviewIds);
+        setLikedCommentIds(data.commentIds);
+      })
+      .catch(() => {});
+  }, [session]);
 
   function startEdit(review: Review) {
     setEditingId(review.id);
@@ -248,9 +270,12 @@ export function CourseReviews({ courseId, onWriteClick }: CourseReviewsProps) {
                 <>
                   <div className="flex items-center justify-between gap-1 mb-1">
                     <div className="flex flex-wrap items-center gap-1">
-                      <span className="text-[11px] font-medium text-t-text">
-                        {review.user.displayName}
-                      </span>
+                      <Link href={`/users/${review.user.id}`} className="flex items-center gap-1 hover:underline">
+                        <UserAvatar displayName={review.user.displayName} size="sm" />
+                        <span className="text-[11px] font-medium text-t-text">
+                          {review.user.displayName}
+                        </span>
+                      </Link>
                       <Badge
                         variant={COMPLETION_VARIANT[review.completionStatus] ?? "default"}
                         className="text-[9px] px-1.5 py-0"
@@ -288,6 +313,20 @@ export function CourseReviews({ courseId, onWriteClick }: CourseReviewsProps) {
                     </div>
                   </div>
                   <ReviewContent html={review.content} />
+                  <ReviewPhotosDisplay reviewId={review.id} />
+                  <div className="mt-1.5 flex items-center gap-2">
+                    <LikeButton
+                      reviewId={review.id}
+                      initialCount={review._count?.likes ?? 0}
+                      initialLiked={likedReviewIds.includes(review.id)}
+                    />
+                    <CommentSection
+                      reviewId={review.id}
+                      commentCount={review._count?.comments ?? 0}
+                      likedCommentIds={likedCommentIds}
+                    />
+                    {!isOwner(review) && <ReportButton reviewId={review.id} />}
+                  </div>
                 </>
               )}
             </div>

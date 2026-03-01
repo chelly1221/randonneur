@@ -97,6 +97,30 @@ export default function SystemStatusPage() {
     total: number;
   } | null>(null);
 
+  // Randonneurs.be Scraper state
+  const [beScraperStatus, setBeScraperStatus] = useState<{
+    enabled: boolean;
+    lastScrapeDate: string | null;
+    lastResult: {
+      created: number;
+      updated: number;
+      skipped: number;
+      errors: number;
+      total: number;
+      timestamp: string;
+    } | null;
+    beCourseCount: number;
+  } | null>(null);
+  const [beScraperLoading, setBeScraperLoading] = useState(false);
+  const [beScraperRunning, setBeScraperRunning] = useState(false);
+  const [beScraperRunResult, setBeScraperRunResult] = useState<{
+    created: number;
+    updated: number;
+    skipped: number;
+    errors: string[];
+    total: number;
+  } | null>(null);
+
   const [auScraperStatus, setAuScraperStatus] = useState<{
     enabled: boolean;
     lastScrapeDate: string | null;
@@ -262,6 +286,47 @@ export default function SystemStatusPage() {
     }
   }
 
+  function fetchBeScraperStatus() {
+    setBeScraperLoading(true);
+    fetch("/api/admin/scraper/randonneurs-be")
+      .then((r) => r.json())
+      .then(setBeScraperStatus)
+      .catch(() => setBeScraperStatus(null))
+      .finally(() => setBeScraperLoading(false));
+  }
+
+  async function toggleBeScraper() {
+    if (!beScraperStatus) return;
+    const newEnabled = !beScraperStatus.enabled;
+    try {
+      const res = await fetch("/api/admin/scraper/randonneurs-be", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: newEnabled }),
+      });
+      if (res.ok) {
+        setBeScraperStatus((prev) => prev ? { ...prev, enabled: newEnabled } : null);
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  async function runBeScraper() {
+    setBeScraperRunning(true);
+    setBeScraperRunResult(null);
+    try {
+      const res = await fetch("/api/admin/scraper/randonneurs-be", { method: "POST" });
+      const data = await res.json();
+      setBeScraperRunResult(data);
+      fetchBeScraperStatus();
+    } catch {
+      setBeScraperRunResult({ created: 0, updated: 0, skipped: 0, errors: ["요청 실패"], total: 0 });
+    } finally {
+      setBeScraperRunning(false);
+    }
+  }
+
   function fetchAuScraperStatus() {
     setAuScraperLoading(true);
     fetch("/api/admin/scraper/audax-au")
@@ -360,6 +425,7 @@ export default function SystemStatusPage() {
     fetchBackups();
     fetchScraperStatus();
     fetchAuScraperStatus();
+    fetchBeScraperStatus();
     fetchKrPermScraperStatus();
   }, []);
 
@@ -661,6 +727,130 @@ export default function SystemStatusPage() {
                   {auScraperRunResult.errors.length > 0 && (
                     <div className="mt-1 text-xs text-t-muted">
                       {auScraperRunResult.errors.slice(0, 5).map((err, i) => (
+                        <p key={i}>{err}</p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* Randonneurs.be Scraper Section */}
+      <div className="mt-10">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-xl font-bold flex items-center gap-2">
+            <Globe className="h-5 w-5" />
+            Randonneurs.be 퍼머넌트 스크래퍼
+          </h2>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchBeScraperStatus}
+              disabled={beScraperLoading}
+            >
+              <RefreshCw className={`mr-1 h-4 w-4 ${beScraperLoading ? "animate-spin" : ""}`} />
+              새로고침
+            </Button>
+            <Button
+              size="sm"
+              onClick={runBeScraper}
+              disabled={beScraperRunning}
+            >
+              {beScraperRunning ? (
+                <RefreshCw className="mr-1 h-4 w-4 animate-spin" />
+              ) : (
+                <Play className="mr-1 h-4 w-4" />
+              )}
+              {beScraperRunning ? "실행 중..." : "지금 실행"}
+            </Button>
+          </div>
+        </div>
+
+        <p className="mb-4 text-sm text-t-muted">
+          Randonneurs.be 벨기에 퍼머넌트 코스를 자동으로 가져와 세계 코스로 등록합니다.
+          RideWithGPS에서 GPX 파일도 함께 다운로드합니다. 매월 1회 자동 실행됩니다.
+        </p>
+
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-4">
+          <Card>
+            <CardContent className="py-3">
+              <p className="text-xs text-t-muted">상태</p>
+              <div className="mt-1 flex items-center gap-2">
+                <button
+                  onClick={toggleBeScraper}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    beScraperStatus?.enabled ? "bg-sky-blue" : "bg-gray-300"
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      beScraperStatus?.enabled ? "translate-x-6" : "translate-x-1"
+                    }`}
+                  />
+                </button>
+                <span className="text-sm font-medium">
+                  {beScraperStatus?.enabled ? "활성" : "비활성"}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="py-3">
+              <p className="text-xs text-t-muted">BE 코스 수</p>
+              <p className="mt-1 text-lg font-bold">
+                {beScraperStatus?.beCourseCount ?? "—"}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="py-3">
+              <p className="text-xs text-t-muted">마지막 실행</p>
+              <p className="mt-1 text-sm font-medium">
+                {beScraperStatus?.lastScrapeDate
+                  ? new Date(beScraperStatus.lastScrapeDate).toLocaleString("ko-KR")
+                  : "실행 기록 없음"}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="py-3">
+              <p className="text-xs text-t-muted">마지막 결과</p>
+              {beScraperStatus?.lastResult ? (
+                <div className="mt-1 text-xs space-y-0.5">
+                  <p>생성 <strong>{beScraperStatus.lastResult.created}</strong> / 업데이트 <strong>{beScraperStatus.lastResult.updated}</strong></p>
+                  <p>스킵 {beScraperStatus.lastResult.skipped} / 오류 {beScraperStatus.lastResult.errors}</p>
+                </div>
+              ) : (
+                <p className="mt-1 text-sm text-t-muted">—</p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {beScraperRunResult && (
+          <Card className={`mb-4 ${beScraperRunResult.errors.length > 0 ? "border-sky-orange" : "border-green-300"}`}>
+            <CardContent className="py-3">
+              <div className="flex items-start gap-2">
+                {beScraperRunResult.errors.length > 0 ? (
+                  <AlertTriangle className="h-4 w-4 text-sky-orange mt-0.5 shrink-0" />
+                ) : (
+                  <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
+                )}
+                <div className="text-sm">
+                  <p className="font-medium">
+                    수동 실행 완료: {beScraperRunResult.total}개 발견, {beScraperRunResult.created}개 생성,{" "}
+                    {beScraperRunResult.updated}개 업데이트, {beScraperRunResult.skipped}개 스킵
+                  </p>
+                  {beScraperRunResult.errors.length > 0 && (
+                    <div className="mt-1 text-xs text-t-muted">
+                      {beScraperRunResult.errors.slice(0, 5).map((err, i) => (
                         <p key={i}>{err}</p>
                       ))}
                     </div>

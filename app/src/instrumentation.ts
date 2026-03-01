@@ -34,6 +34,9 @@ export async function register() {
 
   // Korea Randonneurs permanent course scraper scheduler
   scheduleKoraPermScraper();
+
+  // Randonneurs.be permanent course scraper scheduler
+  scheduleRandonneursBeScraper();
 }
 
 /**
@@ -212,6 +215,67 @@ async function checkAndRunKoraPermScraper() {
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       console.error("[kora-perm] Failed:", msg);
+    } finally {
+      await prisma.$disconnect();
+    }
+  } catch {
+    // Prisma not available — ignore
+  }
+}
+
+/**
+ * Schedule the Randonneurs.be scraper to run once monthly.
+ * Uses setInterval (6 hours) + month check to avoid external dependencies.
+ */
+function scheduleRandonneursBeScraper() {
+  // Initial delay: 6 minutes after server start (stagger from KORA's 4min)
+  setTimeout(async () => {
+    await checkAndRunRandonneursBeScraper();
+
+    // Then check every 6 hours
+    setInterval(checkAndRunRandonneursBeScraper, 6 * 60 * 60 * 1000);
+  }, 360_000);
+}
+
+async function checkAndRunRandonneursBeScraper() {
+  try {
+    const { PrismaClient } = await import("@prisma/client");
+    const prisma = new PrismaClient();
+
+    try {
+      // Check if scraper is enabled
+      const enabledSetting = await prisma.setting.findUnique({
+        where: { key: "RANDONNEURS_BE_SCRAPER_ENABLED" },
+      });
+      if (enabledSetting?.value === "false") return;
+
+      // Check if already ran this month (compare YYYY-MM)
+      const lastScrapeSetting = await prisma.setting.findUnique({
+        where: { key: "RANDONNEURS_BE_LAST_SCRAPE_DATE" },
+      });
+
+      if (lastScrapeSetting) {
+        const lastScrape = new Date(lastScrapeSetting.value);
+        const now = new Date();
+        const toMonth = (d: Date) => {
+          const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+          return kst.toISOString().slice(0, 7); // YYYY-MM
+        };
+        if (toMonth(lastScrape) === toMonth(now)) return;
+      }
+
+      console.log("[randonneurs-be] Starting monthly scrape...");
+      const { runRandonneursBeScraper } = await import("./lib/randonneurs-be-scraper");
+      const result = await runRandonneursBeScraper();
+      console.log(
+        `[randonneurs-be] Done: ${result.created} created, ${result.updated} updated, ${result.skipped} skipped, ${result.errors.length} errors`
+      );
+      if (result.errors.length > 0) {
+        console.warn("[randonneurs-be] Errors:", result.errors.slice(0, 5));
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("[randonneurs-be] Failed:", msg);
     } finally {
       await prisma.$disconnect();
     }

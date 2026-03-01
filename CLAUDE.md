@@ -21,7 +21,7 @@
 | Object Storage  | MinIO (GPX + image storage)                          |
 | Orchestration   | Docker Compose                                       |
 | Themes          | 7 visual themes with weather effects                 |
-| Scrapers        | Automated course/event import (ACP, Audax AU, KORA)  |
+| Scrapers        | Automated course/event import (ACP, Audax AU, KORA, Randonneurs.be) |
 
 **Fully on-premise.** No external SaaS dependencies except public map tile CDNs. All services run in Docker containers.
 
@@ -142,6 +142,7 @@ audax/
 │       │           └── scraper/
 │       │               ├── kora/route.ts             # POST run ACP BRM scraper
 │       │               ├── audax-au/route.ts         # POST run Audax AU scraper
+│       │               ├── randonneurs-be/route.ts   # POST run Randonneurs.be scraper
 │       │               └── kora-permanents/route.ts  # POST run KORA permanents scraper
 │       │
 │       ├── components/
@@ -204,6 +205,7 @@ audax/
 │       │   ├── kora-scraper.ts       # ACP BRM world calendar scraper
 │       │   ├── audax-au-scraper.ts   # Audax Australia permanent course scraper
 │       │   ├── kora-permanents-scraper.ts # Korea Randonneurs permanent course scraper
+│       │   ├── randonneurs-be-scraper.ts # Randonneurs.be Belgium permanent course scraper
 │       │   └── utils.ts              # General utilities (cn, etc.)
 │       │
 │       └── types/
@@ -381,6 +383,13 @@ Three scrapers run on schedule via `instrumentation.ts` (Node.js setInterval, no
 - **Output:** Course records with sourceType='kora-permanent', country='KR'
 - **Dedup:** externalId e.g. "kora-PT01", matches existing courses by courseNumber
 
+#### Randonneurs.be Belgium Permanents (`randonneurs-be-scraper.ts`)
+- **Source:** `randonneurs.be/fr/randonnees-permanentes/`
+- **Data:** Belgian permanent randonneuring courses with GPX from RideWithGPS
+- **Schedule:** Monthly (checked every 6h, 6min startup delay)
+- **Output:** Course records with sourceType='randonneurs-be', country='BE'
+- **Dedup:** externalId e.g. "be-perm-louis-beirinckxroute"
+
 #### Scraper Admin Settings (stored in `settings` table)
 - `{SCRAPER}_ENABLED` — boolean toggle
 - `{SCRAPER}_LAST_SCRAPE_DATE` — ISO timestamp of last run
@@ -514,6 +523,7 @@ POST      /api/admin/settings            — Admin settings
 POST      /api/admin/scraper/kora        — Run ACP BRM scraper manually (admin)
 POST      /api/admin/scraper/audax-au    — Run Audax AU scraper manually (admin)
 POST      /api/admin/scraper/kora-permanents — Run KORA permanents scraper manually (admin)
+POST      /api/admin/scraper/randonneurs-be  — Run Randonneurs.be scraper manually (admin)
 
 # System
 GET       /api/health                    — Service health checks

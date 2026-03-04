@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { uploadGpx } from "@/lib/minio";
 import { checkAndAwardBadges } from "@/lib/badges";
+import { createNotifications } from "@/lib/notifications";
 
 export async function POST(request: NextRequest) {
   const session = await auth();
@@ -61,6 +62,23 @@ export async function POST(request: NextRequest) {
 
   // Award badges asynchronously (don't block the response)
   checkAndAwardBadges(user.id).catch(() => {});
+
+  // Notify followers about the completion (non-blocking)
+  prisma.follow.findMany({
+    where: { followingId: user.id },
+    select: { followerId: true },
+  }).then((followers) => {
+    const followerIds = followers.map((f) => f.followerId);
+    if (followerIds.length > 0) {
+      createNotifications(
+        followerIds,
+        "completion",
+        "코스 완주",
+        `${user.displayName}님이 ${course.name}을(를) 완주했습니다`,
+        `/courses/${courseId}`
+      ).catch(() => {});
+    }
+  }).catch(() => {});
 
   return NextResponse.json(completion, { status: 201 });
 }

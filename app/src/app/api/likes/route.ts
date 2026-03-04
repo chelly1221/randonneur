@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { createNotification } from "@/lib/notifications";
 
 export async function POST(request: NextRequest) {
   const session = await auth();
@@ -38,6 +39,23 @@ export async function POST(request: NextRequest) {
 
     await prisma.like.create({ data: { userId: user.id, reviewId } });
     const count = await prisma.like.count({ where: { reviewId } });
+
+    // Notify the review author (non-blocking, skip if liking own review)
+    prisma.review.findUnique({
+      where: { id: reviewId },
+      select: { userId: true, courseId: true },
+    }).then((review) => {
+      if (review && review.userId !== user.id) {
+        createNotification(
+          review.userId,
+          "like",
+          "좋아요",
+          `${user.displayName}님이 리뷰에 좋아요를 눌렀습니다`,
+          `/courses/${review.courseId}`
+        ).catch(() => {});
+      }
+    }).catch(() => {});
+
     return NextResponse.json({ liked: true, count });
   }
 
@@ -54,6 +72,23 @@ export async function POST(request: NextRequest) {
 
     await prisma.like.create({ data: { userId: user.id, commentId } });
     const count = await prisma.like.count({ where: { commentId } });
+
+    // Notify the comment author (non-blocking, skip if liking own comment)
+    prisma.comment.findUnique({
+      where: { id: commentId },
+      select: { userId: true, review: { select: { courseId: true } } },
+    }).then((comment) => {
+      if (comment && comment.userId !== user.id) {
+        createNotification(
+          comment.userId,
+          "like",
+          "좋아요",
+          `${user.displayName}님이 댓글에 좋아요를 눌렀습니다`,
+          `/courses/${comment.review.courseId}`
+        ).catch(() => {});
+      }
+    }).catch(() => {});
+
     return NextResponse.json({ liked: true, count });
   }
 }

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { createNotification } from "@/lib/notifications";
 
 /**
  * Evaluate and award badges for a user.
@@ -68,11 +69,23 @@ export async function checkAndAwardBadges(userId: string) {
     }
 
     if (earned) {
-      await prisma.userBadge.create({
+      const created = await prisma.userBadge.create({
         data: { userId, badgeId: badge.id },
       }).catch(() => {
         // Ignore unique constraint violations (concurrent calls)
+        return null;
       });
+
+      // Notify user about the new badge (only if actually created, non-blocking)
+      if (created) {
+        createNotification(
+          userId,
+          "completion",
+          "뱃지 획득!",
+          `'${badge.name}' 뱃지를 획득했습니다!`,
+          "/profile"
+        ).catch(() => {});
+      }
     }
   }
 }

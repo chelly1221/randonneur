@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { uploadGpx } from "@/lib/minio";
 import { parseGpx, sampleElevations } from "@/lib/gpx";
-import { buildElevationBands } from "@/lib/elevation-render";
 
 export async function POST(request: NextRequest) {
   const session = await auth();
@@ -51,8 +50,6 @@ export async function POST(request: NextRequest) {
   }
 
   const elevationProfile = sampleElevations(parsed.elevations);
-  // Compute bands from full-resolution data for accuracy
-  const elevationBands = buildElevationBands(parsed.elevations);
 
   return NextResponse.json({
     key,
@@ -61,7 +58,6 @@ export async function POST(request: NextRequest) {
     geojson: lineGeometry,
     elevationProfile: {
       points: elevationProfile,
-      bands: elevationBands,
     },
   });
 }

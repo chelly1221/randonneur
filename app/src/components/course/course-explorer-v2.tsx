@@ -312,7 +312,6 @@ export function CourseExplorer({
         if (!data) return null;
         const normalized: DetailData = {
           elevations: data.elevations ?? [],
-          elevationBands: data.elevationBands ?? [],
           geojson: data.geojson ?? null,
           bounds: data.bounds ?? null,
           checkpoints: data.checkpoints ?? [],

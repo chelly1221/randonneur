@@ -7,7 +7,7 @@
 
 import { PrismaClient } from "@prisma/client";
 import * as Minio from "minio";
-import { buildElevationBands, type ElevationPoint } from "./src/lib/elevation-render";
+import { type ElevationPoint } from "./src/lib/elevation-render";
 
 // --- Inlined GPX helpers (avoid path alias issues) ---
 
@@ -131,17 +131,15 @@ async function main() {
         continue;
       }
 
-      // Bands from full-resolution data, points sampled for display
-      const bands = buildElevationBands(fullElevations);
       const points = sampleElevations(fullElevations);
 
       await prisma.course.update({
         where: { id: course.id },
-        data: { elevationProfile: { points, bands } },
+        data: { elevationProfile: { points } },
       });
       success++;
       console.log(
-        `OK ${course.name}: raw=${fullElevations.length}, display=${points.length}, bands=${bands.length}`,
+        `OK ${course.name}: raw=${fullElevations.length}, display=${points.length}`,
       );
     } catch (err) {
       failed++;

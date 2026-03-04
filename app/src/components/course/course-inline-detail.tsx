@@ -43,7 +43,6 @@ interface CourseBasic {
 
 export interface DetailData {
   elevations: { distance: number; elevation: number }[];
-  elevationBands?: { from: number; to: number; color: string }[];
   geojson: GeoJSON.FeatureCollection | null;
   bounds: { minLat: number; maxLat: number; minLng: number; maxLng: number } | null;
   checkpoints: CheckpointData[];
@@ -203,7 +202,6 @@ export function CourseInlineDetail({
         });
         onDataLoaded({
           elevations: data.elevations,
-          elevationBands: data.elevationBands ?? [],
           geojson: data.geojson,
           bounds: data.bounds,
           checkpoints: data.checkpoints,

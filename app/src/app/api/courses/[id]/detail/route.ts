@@ -80,7 +80,6 @@ export async function GET(
     },
     checkpoints: cpData,
     elevations: elevationData.points,
-    elevationBands: elevationData.bands,
     geojson: geojsonParsed,
     bounds,
   });

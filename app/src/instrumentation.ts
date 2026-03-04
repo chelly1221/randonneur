@@ -1,3 +1,7 @@
+// In-memory mutex to prevent concurrent runs of the same scraper.
+// If a scraper is still running when its next interval fires, the run is skipped.
+const runningScrapers = new Set<string>();
+
 export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
 
@@ -49,6 +53,12 @@ export async function register() {
 }
 
 async function checkAndRunAcpScraper() {
+  const scraperName = "acp-scraper";
+  if (runningScrapers.has(scraperName)) {
+    console.log(`[${scraperName}] Skipping — previous run still in progress`);
+    return;
+  }
+  runningScrapers.add(scraperName);
   try {
     const { PrismaClient } = await import("@prisma/client");
     const prisma = new PrismaClient();
@@ -93,10 +103,18 @@ async function checkAndRunAcpScraper() {
     }
   } catch {
     // Prisma not available — ignore
+  } finally {
+    runningScrapers.delete(scraperName);
   }
 }
 
 async function checkAndRunAudaxAuScraper() {
+  const scraperName = "audax-au";
+  if (runningScrapers.has(scraperName)) {
+    console.log(`[${scraperName}] Skipping — previous run still in progress`);
+    return;
+  }
+  runningScrapers.add(scraperName);
   try {
     const { PrismaClient } = await import("@prisma/client");
     const prisma = new PrismaClient();
@@ -140,10 +158,18 @@ async function checkAndRunAudaxAuScraper() {
     }
   } catch {
     // Prisma not available — ignore
+  } finally {
+    runningScrapers.delete(scraperName);
   }
 }
 
 async function checkAndRunKoraPermScraper() {
+  const scraperName = "kora-perm";
+  if (runningScrapers.has(scraperName)) {
+    console.log(`[${scraperName}] Skipping — previous run still in progress`);
+    return;
+  }
+  runningScrapers.add(scraperName);
   try {
     const { PrismaClient } = await import("@prisma/client");
     const prisma = new PrismaClient();
@@ -187,10 +213,18 @@ async function checkAndRunKoraPermScraper() {
     }
   } catch {
     // Prisma not available — ignore
+  } finally {
+    runningScrapers.delete(scraperName);
   }
 }
 
 async function checkAndRunRandonneursBeScraper() {
+  const scraperName = "randonneurs-be";
+  if (runningScrapers.has(scraperName)) {
+    console.log(`[${scraperName}] Skipping — previous run still in progress`);
+    return;
+  }
+  runningScrapers.add(scraperName);
   try {
     const { PrismaClient } = await import("@prisma/client");
     const prisma = new PrismaClient();
@@ -234,10 +268,18 @@ async function checkAndRunRandonneursBeScraper() {
     }
   } catch {
     // Prisma not available — ignore
+  } finally {
+    runningScrapers.delete(scraperName);
   }
 }
 
 async function checkAndRunBcrScraper() {
+  const scraperName = "bcr";
+  if (runningScrapers.has(scraperName)) {
+    console.log(`[${scraperName}] Skipping — previous run still in progress`);
+    return;
+  }
+  runningScrapers.add(scraperName);
   try {
     const { PrismaClient } = await import("@prisma/client");
     const prisma = new PrismaClient();
@@ -281,10 +323,18 @@ async function checkAndRunBcrScraper() {
     }
   } catch {
     // Prisma not available — ignore
+  } finally {
+    runningScrapers.delete(scraperName);
   }
 }
 
 async function checkAndRunOntarioScraper() {
+  const scraperName = "ontario";
+  if (runningScrapers.has(scraperName)) {
+    console.log(`[${scraperName}] Skipping — previous run still in progress`);
+    return;
+  }
+  runningScrapers.add(scraperName);
   try {
     const { PrismaClient } = await import("@prisma/client");
     const prisma = new PrismaClient();
@@ -328,10 +378,18 @@ async function checkAndRunOntarioScraper() {
     }
   } catch {
     // Prisma not available — ignore
+  } finally {
+    runningScrapers.delete(scraperName);
   }
 }
 
 async function checkAndRunAlbertaScraper() {
+  const scraperName = "alberta";
+  if (runningScrapers.has(scraperName)) {
+    console.log(`[${scraperName}] Skipping — previous run still in progress`);
+    return;
+  }
+  runningScrapers.add(scraperName);
   try {
     const { PrismaClient } = await import("@prisma/client");
     const prisma = new PrismaClient();
@@ -375,5 +433,7 @@ async function checkAndRunAlbertaScraper() {
     }
   } catch {
     // Prisma not available — ignore
+  } finally {
+    runningScrapers.delete(scraperName);
   }
 }

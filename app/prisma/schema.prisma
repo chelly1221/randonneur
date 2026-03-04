@@ -43,6 +43,7 @@ model Course {
   journals             Journal[]
   seasonalPicks        SeasonalPick[]
   events               Event[]
+  rideRecruits         RideRecruit[]
 
   @@unique([sourceType, externalId])
   @@index([country])
@@ -81,6 +82,8 @@ model User {
   polls                      Poll[]
   pollVotes                  PollVote[]
   notifications              Notification[]
+  rideRecruits               RideRecruit[]
+  rideRecruitParticipations  RideRecruitParticipant[]
 
   @@map("users")
 }
@@ -525,4 +528,40 @@ model Notification {
   @@index([userId, read])
   @@index([createdAt])
   @@map("notifications")
+}
+
+model RideRecruit {
+  id           String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseId      String?  @map("course_id") @db.Uuid
+  course       Course?  @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  title        String
+  description  String?
+  rideDate     DateTime @map("ride_date")
+  meetingPoint String?  @map("meeting_point")
+  maxMembers   Int      @default(10) @map("max_members")
+  status       String   @default("open") // open, closed, completed, cancelled
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  participants RideRecruitParticipant[]
+
+  @@index([userId])
+  @@index([rideDate])
+  @@index([status])
+  @@map("ride_recruits")
+}
+
+model RideRecruitParticipant {
+  id        String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  recruitId String      @map("recruit_id") @db.Uuid
+  recruit   RideRecruit @relation(fields: [recruitId], references: [id], onDelete: Cascade)
+  userId    String      @map("user_id") @db.Uuid
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  message   String?
+  status    String      @default("joined") // joined, cancelled
+  createdAt DateTime    @default(now()) @map("created_at")
+
+  @@unique([recruitId, userId])
+  @@map("ride_recruit_participants")
 }

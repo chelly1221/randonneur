@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { UserAvatar } from "@/components/user/user-avatar";
 import {
   Calendar,
+  CalendarPlus,
   MapPin,
   Users,
   ExternalLink,
@@ -208,23 +209,32 @@ export function EventDetailClient({
               <h2 className="text-xl font-bold text-t-text">{event.title}</h2>
             </div>
 
-            {isAdmin && (
-              <div className="flex items-center gap-1 shrink-0">
-                <Link
-                  href={`/community/events/${event.id}/edit`}
-                  className="rounded-md p-1.5 hover:bg-t-hover transition-colors text-t-muted"
-                >
-                  <Pencil className="h-4 w-4" />
-                </Link>
-                <button
-                  onClick={handleDelete}
-                  disabled={deleting}
-                  className="rounded-md p-1.5 hover:bg-sky-red/10 transition-colors text-t-muted hover:text-sky-red disabled:opacity-50"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            )}
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                onClick={() => window.open(`/api/events/${event.id}/ical`)}
+                className="rounded-md p-1.5 hover:bg-sky-blue/10 transition-colors text-t-muted hover:text-sky-blue"
+                title="캘린더에 추가"
+              >
+                <CalendarPlus className="h-4 w-4" />
+              </button>
+              {isAdmin && (
+                <>
+                  <Link
+                    href={`/community/events/${event.id}/edit`}
+                    className="rounded-md p-1.5 hover:bg-t-hover transition-colors text-t-muted"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Link>
+                  <button
+                    onClick={handleDelete}
+                    disabled={deleting}
+                    className="rounded-md p-1.5 hover:bg-sky-red/10 transition-colors text-t-muted hover:text-sky-red disabled:opacity-50"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </>
+              )}
+            </div>
           </div>
 
           {/* Meta info */}

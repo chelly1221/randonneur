@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BadgeDisplay } from "@/components/user/badge-display";
 import { UserAvatar } from "@/components/user/user-avatar";
-import { Bike, Mountain, Map, Trophy, ExternalLink, Settings } from "lucide-react";
+import { Bike, Mountain, Map, Trophy, ExternalLink, Settings, Download } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
@@ -53,6 +53,7 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [badges, setBadges] = useState<BadgeData[]>([]);
+  const [exportFormat, setExportFormat] = useState<"csv" | "json">("csv");
 
   useEffect(() => {
     Promise.all([
@@ -158,6 +159,27 @@ export default function ProfilePage() {
           </Card>
         ))}
       </div>
+
+      {/* Data export */}
+      {data && data.completions.length > 0 && (
+        <div className="mb-6 flex items-center gap-2">
+          <select
+            value={exportFormat}
+            onChange={(e) => setExportFormat(e.target.value as "csv" | "json")}
+            className="rounded-md border border-t-border bg-t-surface px-2 py-1.5 text-sm text-t-text"
+          >
+            <option value="csv">CSV</option>
+            <option value="json">JSON</option>
+          </select>
+          <button
+            onClick={() => window.open(`/api/users/me/export?format=${exportFormat}`)}
+            className="inline-flex items-center gap-1.5 rounded-md border border-sky-blue px-3 py-1.5 text-sm font-medium text-sky-blue hover:bg-sky-blue/10 transition-colors"
+          >
+            <Download className="h-4 w-4" />
+            데이터 내보내기
+          </button>
+        </div>
+      )}
 
       <div>
         <h2 className="mb-4 text-lg font-semibold">완주 기록</h2>

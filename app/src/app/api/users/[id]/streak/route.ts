@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
+function getWeekKey(dateStr: string): string {
+  const d = new Date(dateStr);
+  // Get Monday of this week
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  const monday = new Date(d.setDate(diff));
+  return `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, "0")}-${String(monday.getDate()).padStart(2, "0")}`;
+}
+
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
@@ -16,15 +25,32 @@ export async function GET(
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
-  // Get completions from the past 12 months
-  const twelveMonthsAgo = new Date();
-  twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
-  twelveMonthsAgo.setHours(0, 0, 0, 0);
+  // Check for year query parameter
+  const { searchParams } = new URL(request.url);
+  const yearParam = searchParams.get("year");
+  const requestedYear = yearParam ? parseInt(yearParam, 10) : null;
 
+  // Determine date range for completion query
+  let rangeStart: Date;
+  let rangeEnd: Date;
+
+  if (requestedYear && !isNaN(requestedYear) && requestedYear >= 2000 && requestedYear <= 2100) {
+    // Specific year: Jan 1 to Dec 31
+    rangeStart = new Date(requestedYear, 0, 1);
+    rangeEnd = new Date(requestedYear, 11, 31, 23, 59, 59, 999);
+  } else {
+    // Default: last 12 months
+    rangeEnd = new Date();
+    rangeStart = new Date();
+    rangeStart.setMonth(rangeStart.getMonth() - 12);
+    rangeStart.setHours(0, 0, 0, 0);
+  }
+
+  // Fetch completions in the date range
   const completions = await prisma.completion.findMany({
     where: {
       userId: id,
-      completedAt: { gte: twelveMonthsAgo },
+      completedAt: { gte: rangeStart, lte: rangeEnd },
     },
     select: { completedAt: true },
     orderBy: { completedAt: "desc" },
@@ -41,20 +67,9 @@ export async function GET(
   const dates = Array.from(dateSet).sort();
 
   // Calculate streaks based on consecutive weeks with at least one completion
-  // A "week" is Mon-Sun. Get the week number for each completion date.
-  function getWeekKey(dateStr: string): string {
-    const d = new Date(dateStr);
-    // Get Monday of this week
-    const day = d.getDay();
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-    const monday = new Date(d.setDate(diff));
-    return `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, "0")}-${String(monday.getDate()).padStart(2, "0")}`;
-  }
-
   const weekKeys = new Set(dates.map(getWeekKey));
   const sortedWeeks = Array.from(weekKeys).sort();
 
-  // Calculate current streak (consecutive weeks ending at current week or last week)
   let currentStreak = 0;
   let longestStreak = 0;
   let streak = 0;
@@ -69,7 +84,6 @@ export async function GET(
     if (i === 0) {
       streak = 1;
     } else {
-      // Check if this week is exactly 7 days after the previous
       const prevMonday = new Date(sortedWeeks[i - 1]);
       const thisMonday = new Date(sortedWeeks[i]);
       const diffDays = (thisMonday.getTime() - prevMonday.getTime()) / (1000 * 60 * 60 * 24);
@@ -106,9 +120,24 @@ export async function GET(
     }
   }
 
+  // Get available years (years that have at least one completion)
+  const allCompletions = await prisma.completion.findMany({
+    where: { userId: id },
+    select: { completedAt: true },
+    orderBy: { completedAt: "asc" },
+  });
+
+  const yearSet = new Set<number>();
+  for (const c of allCompletions) {
+    yearSet.add(new Date(c.completedAt).getFullYear());
+  }
+  const availableYears = Array.from(yearSet).sort((a, b) => b - a);
+
   return NextResponse.json({
     dates,
     currentStreak,
     longestStreak,
+    availableYears,
+    year: requestedYear || null,
   });
 }

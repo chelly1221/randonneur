@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { createNotification } from "@/lib/notifications";
+import { sanitizeHtml } from "@/lib/sanitize";
 
 export async function GET(
   _request: NextRequest,
@@ -77,7 +78,7 @@ export async function POST(
       reviewId,
       userId: user.id,
       parentId: parentId ?? null,
-      content: content.trim(),
+      content: sanitizeHtml(content.trim()),
     },
     include: {
       user: { select: { id: true, displayName: true } },

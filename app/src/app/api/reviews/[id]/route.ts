@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { sanitizeHtml } from "@/lib/sanitize";
 
 export async function PUT(
   request: NextRequest,
@@ -47,7 +48,7 @@ export async function PUT(
   const data: Record<string, unknown> = {};
   if (completionStatus !== undefined) data.completionStatus = completionStatus;
   if (difficulty !== undefined) data.difficulty = difficulty || null;
-  if (content !== undefined) data.content = content.trim();
+  if (content !== undefined) data.content = sanitizeHtml(content.trim());
 
   const updated = await prisma.review.update({
     where: { id },

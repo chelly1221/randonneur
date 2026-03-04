@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { sanitizeHtml } from "@/lib/sanitize";
 
 export async function PUT(
   request: NextRequest,
@@ -37,7 +38,7 @@ export async function PUT(
 
   const updated = await prisma.comment.update({
     where: { id },
-    data: { content: content.trim() },
+    data: { content: sanitizeHtml(content.trim()) },
     include: {
       user: { select: { id: true, displayName: true } },
       _count: { select: { likes: true } },

@@ -2,8 +2,24 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { downloadGpx } from "@/lib/minio";
 import JSZip from "jszip";
+import { checkRateLimit, getIpKey } from "@/lib/rate-limit";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  // Rate limit: 5 requests per 10 minutes per IP
+  const ipKey = getIpKey(request, "batch-download");
+  const limit = checkRateLimit(ipKey, 5, 600_000);
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests. Please try again later." },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(Math.ceil(limit.resetMs / 1000)),
+          "X-RateLimit-Remaining": "0",
+        },
+      }
+    );
+  }
   const courses = await prisma.course.findMany({
     where: { archived: false, gpxFileKey: { not: null } },
     select: { name: true, courseNumber: true, gpxFileKey: true },
@@ -35,6 +51,22 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  // Rate limit: 5 requests per 10 minutes per IP
+  const ipKey = getIpKey(request, "batch-download");
+  const limit = checkRateLimit(ipKey, 5, 600_000);
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests. Please try again later." },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(Math.ceil(limit.resetMs / 1000)),
+          "X-RateLimit-Remaining": "0",
+        },
+      }
+    );
+  }
+
   const { courseIds } = await request.json();
 
   if (!Array.isArray(courseIds) || courseIds.length === 0) {

@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { FavoriteButton } from "@/components/course/favorite-button";
+import { ShareButton } from "@/components/course/share-button";
 import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
@@ -151,6 +152,7 @@ export default async function CourseDetailPage({ params }: Props) {
           ))}
         </div>
         <div className="flex items-center gap-2">
+          <ShareButton courseId={id} courseName={course.name} courseDistance={course.distanceKm} />
           <FavoriteButton courseId={id} />
           <CompletionForm courseId={id} />
           {course.gpxFileKey && (

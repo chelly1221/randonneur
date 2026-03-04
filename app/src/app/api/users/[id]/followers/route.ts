@@ -21,7 +21,7 @@ export async function GET(
       where: { followingId: id },
       include: {
         follower: {
-          select: { id: true, displayName: true, avatarKey: true },
+          select: { id: true, displayName: true, avatarKey: true, bio: true },
         },
       },
       orderBy: { createdAt: "desc" },
@@ -30,7 +30,7 @@ export async function GET(
       where: { followerId: id },
       include: {
         following: {
-          select: { id: true, displayName: true, avatarKey: true },
+          select: { id: true, displayName: true, avatarKey: true, bio: true },
         },
       },
       orderBy: { createdAt: "desc" },

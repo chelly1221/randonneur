@@ -85,12 +85,30 @@ export default async function WorldCoursesPage() {
   const regions = [...new Set(courses.map((c) => c.region).filter(Boolean))] as string[];
   const countries = [...new Set(courses.map((c) => c.country).filter(Boolean))] as string[];
 
+  // Compute distance/elevation ranges for sliders
+  const distances = courses.map((c) => c.distanceKm);
+  const elevations = courses.map((c) => c.elevationM);
+  const distanceRange: [number, number] = [
+    Math.floor(Math.min(...distances, 0) / 10) * 10,
+    Math.ceil(Math.max(...distances, 100) / 10) * 10,
+  ];
+  const elevationRange: [number, number] = [
+    Math.floor(Math.min(...elevations, 0) / 100) * 100,
+    Math.ceil(Math.max(...elevations, 1000) / 100) * 100,
+  ];
+
+  // Collect unique categories
+  const categories = [...new Set(courses.flatMap((c) => c.category))].sort();
+
   return (
     <WorldCoursesClient
       courses={courses}
       featureCollection={featureCollection}
       regions={regions}
       countries={countries}
+      distanceRange={distanceRange}
+      elevationRange={elevationRange}
+      categories={categories}
     />
   );
 }

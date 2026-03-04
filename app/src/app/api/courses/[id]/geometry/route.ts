@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
  * GET /api/courses/[id]/geometry
  *
  * Returns simplified course geometry as an array of [lng, lat] coordinates.
- * Used by journal card mini-map previews (SVG-based, not MapLibre).
+ * Used for mini-map previews (SVG-based, not MapLibre).
  * Simplifies geometry to reduce payload size for card-level display.
  */
 export async function GET(

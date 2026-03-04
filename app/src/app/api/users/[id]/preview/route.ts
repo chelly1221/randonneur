@@ -25,7 +25,6 @@ export async function GET(
       _count: {
         select: {
           completions: true,
-          journals: true,
         },
       },
     },
@@ -122,7 +121,6 @@ export async function GET(
     role: user.role,
     avatarKey: user.avatarKey,
     completionCount: user._count.completions,
-    journalCount: user._count.journals,
     recentActivity,
     isFollowing,
     isSelf,

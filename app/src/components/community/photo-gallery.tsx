@@ -9,7 +9,7 @@ interface GalleryPhoto {
   id: string;
   imageKey: string;
   imageUrl: string;
-  type: "review" | "journal" | "checkpoint";
+  type: "review" | "checkpoint";
   user: { id: string; displayName: string; avatarKey: string | null } | null;
   course: { id: string; name: string; region: string | null } | null;
   caption: string | null;
@@ -18,7 +18,6 @@ interface GalleryPhoto {
 
 const TYPE_LABELS: Record<string, string> = {
   review: "후기",
-  journal: "일지",
   checkpoint: "체크포인트",
 };
 

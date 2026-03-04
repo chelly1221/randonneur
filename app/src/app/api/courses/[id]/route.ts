@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { logAuditAction, AUDIT_ACTIONS } from "@/lib/audit";
 
 const SR_CATEGORY = "sr-600";
 const SR_TIME_LIMIT = "60시간";
@@ -106,6 +107,18 @@ export async function PUT(
     );
   }
 
+  // Log archive toggle or general update
+  const action = "archived" in body && Object.keys(body).length <= 2
+    ? AUDIT_ACTIONS.COURSE_ARCHIVE
+    : AUDIT_ACTIONS.COURSE_UPDATE;
+  logAuditAction(
+    session.user.id,
+    action,
+    "course",
+    course.id,
+    { name: course.name, archived: course.archived }
+  );
+
   return NextResponse.json(course);
 }
 
@@ -119,6 +132,22 @@ export async function DELETE(
   }
 
   const { id } = await params;
+
+  // Fetch course name before deletion for the audit log
+  const course = await prisma.course.findUnique({
+    where: { id },
+    select: { name: true, courseNumber: true },
+  });
+
   await prisma.course.delete({ where: { id } });
+
+  logAuditAction(
+    session.user.id,
+    AUDIT_ACTIONS.COURSE_DELETE,
+    "course",
+    id,
+    { name: course?.name, courseNumber: course?.courseNumber }
+  );
+
   return NextResponse.json({ success: true });
 }

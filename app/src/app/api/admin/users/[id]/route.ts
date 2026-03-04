@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { logAuditAction, AUDIT_ACTIONS } from "@/lib/audit";
 
 export async function PATCH(
   request: NextRequest,
@@ -24,6 +25,19 @@ export async function PATCH(
     where: { id },
     data: { status },
   });
+
+  const actionMap: Record<string, string> = {
+    banned: AUDIT_ACTIONS.USER_BAN,
+    muted: AUDIT_ACTIONS.USER_MUTE,
+    active: AUDIT_ACTIONS.USER_ACTIVATE,
+  };
+  logAuditAction(
+    session.user.id,
+    actionMap[status] ?? "user_status_change",
+    "user",
+    id,
+    { displayName: updated.displayName, status }
+  );
 
   return NextResponse.json(updated);
 }

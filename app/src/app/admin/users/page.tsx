@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
+import { Search, Loader2 } from "lucide-react";
 
 interface UserData {
   id: string;
@@ -18,13 +20,80 @@ interface UserData {
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<UserData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [total, setTotal] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+
+  // Filters
+  const [search, setSearch] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+
+  const observerRef = useRef<HTMLDivElement>(null);
+  const loadingRef = useRef(false);
+
+  const fetchUsers = useCallback(
+    async (cursor?: string | null) => {
+      const isInitial = !cursor;
+      if (isInitial) {
+        setLoading(true);
+      } else {
+        setLoadingMore(true);
+      }
+
+      const params = new URLSearchParams();
+      params.set("limit", "20");
+      if (search) params.set("search", search);
+      if (statusFilter) params.set("status", statusFilter);
+      if (cursor) params.set("cursor", cursor);
+
+      try {
+        const res = await fetch(`/api/admin/users?${params}`);
+        const data = await res.json();
+
+        if (isInitial) {
+          setUsers(data.users);
+        } else {
+          setUsers((prev) => [...prev, ...data.users]);
+        }
+        setTotal(data.total);
+        setHasMore(data.hasMore);
+        setNextCursor(data.nextCursor);
+      } finally {
+        if (isInitial) {
+          setLoading(false);
+        } else {
+          setLoadingMore(false);
+        }
+        loadingRef.current = false;
+      }
+    },
+    [search, statusFilter]
+  );
 
   useEffect(() => {
-    fetch("/api/admin/users")
-      .then((r) => r.json())
-      .then((data) => setUsers(data.users))
-      .finally(() => setLoading(false));
-  }, []);
+    fetchUsers();
+  }, [fetchUsers]);
+
+  // Infinite scroll
+  useEffect(() => {
+    const el = observerRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingRef.current) {
+          loadingRef.current = true;
+          fetchUsers(nextCursor);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasMore, nextCursor, fetchUsers]);
 
   async function handleStatusChange(userId: string, status: string) {
     const res = await fetch(`/api/admin/users/${userId}`, {
@@ -39,9 +108,61 @@ export default function AdminUsersPage() {
     }
   }
 
+  function handleSearch(e: React.FormEvent) {
+    e.preventDefault();
+    setSearch(searchInput);
+  }
+
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-bold">사용자 관리</h1>
+      <div className="mb-6 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold">사용자 관리</h1>
+          <span className="text-sm text-t-muted">
+            {total.toLocaleString()}명
+          </span>
+        </div>
+      </div>
+
+      {/* Search and filters */}
+      <Card className="mb-4">
+        <div className="flex flex-wrap items-end gap-3 p-4">
+          <form onSubmit={handleSearch} className="flex gap-2">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-t-muted">
+                검색
+              </label>
+              <input
+                type="text"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                placeholder="이름, 이메일..."
+                className="w-56 rounded border border-t-border bg-t-surface px-3 py-1.5 text-sm placeholder:text-t-faint"
+              />
+            </div>
+            <div className="flex items-end">
+              <Button type="submit" size="sm">
+                <Search className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </form>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-t-muted">
+              상태
+            </label>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="rounded border border-t-border bg-t-surface px-3 py-1.5 text-sm"
+            >
+              <option value="">전체</option>
+              <option value="active">활성</option>
+              <option value="muted">제한</option>
+              <option value="banned">정지</option>
+            </select>
+          </div>
+        </div>
+      </Card>
 
       <Card>
         <div className="overflow-x-auto">
@@ -78,7 +199,7 @@ export default function AdminUsersPage() {
                     colSpan={7}
                     className="px-4 py-8 text-center text-t-faint"
                   >
-                    로딩중...
+                    <Loader2 className="mx-auto h-5 w-5 animate-spin" />
                   </td>
                 </tr>
               ) : users.length === 0 ? (
@@ -87,7 +208,9 @@ export default function AdminUsersPage() {
                     colSpan={7}
                     className="px-4 py-8 text-center text-t-faint"
                   >
-                    등록된 사용자가 없습니다.
+                    {search || statusFilter
+                      ? "검색 결과가 없습니다."
+                      : "등록된 사용자가 없습니다."}
                   </td>
                 </tr>
               ) : (
@@ -162,6 +285,19 @@ export default function AdminUsersPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Infinite scroll sentinel */}
+        <div ref={observerRef} className="h-1" />
+        {loadingMore && (
+          <div className="flex justify-center py-4">
+            <Loader2 className="h-5 w-5 animate-spin text-t-muted" />
+          </div>
+        )}
+        {!loading && users.length > 0 && !hasMore && (
+          <div className="py-3 text-center text-xs text-t-faint">
+            전체 {total.toLocaleString()}명 표시 완료
+          </div>
+        )}
       </Card>
     </div>
   );

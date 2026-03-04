@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Trash2 } from "lucide-react";
 
-export function DeleteCourseButton({ courseId }: { courseId: string }) {
+export function DeleteCourseButton({ courseId, onSuccess }: { courseId: string; onSuccess?: () => void }) {
   const router = useRouter();
 
   async function handleDelete() {
@@ -12,7 +12,11 @@ export function DeleteCourseButton({ courseId }: { courseId: string }) {
 
     const res = await fetch(`/api/courses/${courseId}`, { method: "DELETE" });
     if (res.ok) {
-      router.refresh();
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        router.refresh();
+      }
     }
   }
 

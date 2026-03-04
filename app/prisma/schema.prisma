@@ -84,6 +84,7 @@ model User {
   notifications              Notification[]
   rideRecruits               RideRecruit[]
   rideRecruitParticipations  RideRecruitParticipant[]
+  auditLogs                  AuditLog[]
 
   @@map("users")
 }
@@ -564,4 +565,22 @@ model RideRecruitParticipant {
 
   @@unique([recruitId, userId])
   @@map("ride_recruit_participants")
+}
+
+model AuditLog {
+  id         String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  action     String
+  targetType String?  @map("target_type")
+  targetId   String?  @map("target_id")
+  details    Json?    @db.JsonB
+  ipHash     String?  @map("ip_hash")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
 }

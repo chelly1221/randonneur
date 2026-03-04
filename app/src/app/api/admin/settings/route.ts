@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { logAuditAction, AUDIT_ACTIONS } from "@/lib/audit";
 
 interface SettingDef {
   key: string;
@@ -73,6 +74,14 @@ export async function PUT(request: NextRequest) {
         create: { key, value },
       })
     )
+  );
+
+  logAuditAction(
+    session.user.id,
+    AUDIT_ACTIONS.SETTINGS_UPDATE,
+    "setting",
+    null,
+    { keys: entries.map(([k]) => k) }
   );
 
   // Schedule restart after response is sent

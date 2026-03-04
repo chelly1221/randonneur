@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { runAudaxAuScraper } from "@/lib/audax-au-scraper";
+import { logAuditAction, AUDIT_ACTIONS } from "@/lib/audit";
 
 export async function GET() {
   const session = await auth();
@@ -35,6 +36,14 @@ export async function POST() {
   }
 
   const result = await runAudaxAuScraper();
+
+  logAuditAction(
+    session.user.id,
+    AUDIT_ACTIONS.SCRAPER_RUN,
+    "scraper",
+    "audax-au",
+    { scraper: "Audax Australia", result }
+  );
 
   return NextResponse.json(result);
 }

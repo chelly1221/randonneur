@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { sendAdminNotification } from "@/lib/push";
+import { sanitizeHtml } from "@/lib/sanitize";
 
 export async function GET(
   _request: NextRequest,
@@ -65,6 +66,8 @@ export async function PUT(
     where: { userId_courseId: { userId: user.id, courseId } },
   });
 
+  const sanitizedContent = sanitizeHtml(content.trim());
+
   let result;
   if (!existing) {
     // Create new
@@ -73,7 +76,7 @@ export async function PUT(
         userId: user.id,
         courseId,
         category: cleanCategory,
-        content: content.trim(),
+        content: sanitizedContent,
         status: "pending",
       },
     });
@@ -85,7 +88,7 @@ export async function PUT(
     // Update existing pending request
     result = await prisma.improvementRequest.update({
       where: { id: existing.id },
-      data: { category: cleanCategory, content: content.trim() },
+      data: { category: cleanCategory, content: sanitizedContent },
     });
   } else {
     // status is "resolved" — create a new pending request (reset)
@@ -93,7 +96,7 @@ export async function PUT(
       where: { id: existing.id },
       data: {
         category: cleanCategory,
-        content: content.trim(),
+        content: sanitizedContent,
         status: "pending",
         adminNote: null,
       },

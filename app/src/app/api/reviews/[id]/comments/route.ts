@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { createNotification } from "@/lib/notifications";
 
 export async function GET(
   _request: NextRequest,
@@ -83,6 +84,39 @@ export async function POST(
       _count: { select: { likes: true } },
     },
   });
+
+  // Notify the review author if the commenter is not the review author (non-blocking)
+  if (review.userId !== user.id) {
+    createNotification(
+      review.userId,
+      "comment",
+      "새 댓글",
+      `${user.displayName}님이 댓글을 남겼습니다`,
+      `/courses/${review.courseId}`
+    ).catch(() => {});
+  }
+
+  // If this is a reply, also notify the parent comment author (non-blocking)
+  if (parentId) {
+    prisma.comment.findUnique({
+      where: { id: parentId },
+      select: { userId: true },
+    }).then((parentComment) => {
+      if (
+        parentComment &&
+        parentComment.userId !== user.id &&
+        parentComment.userId !== review.userId // avoid duplicate notification
+      ) {
+        createNotification(
+          parentComment.userId,
+          "comment",
+          "새 답글",
+          `${user.displayName}님이 답글을 남겼습니다`,
+          `/courses/${review.courseId}`
+        ).catch(() => {});
+      }
+    }).catch(() => {});
+  }
 
   return NextResponse.json(comment, { status: 201 });
 }

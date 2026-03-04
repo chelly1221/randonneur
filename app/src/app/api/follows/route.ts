@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { createNotification } from "@/lib/notifications";
 
 export async function POST(request: NextRequest) {
   const session = await auth();
@@ -55,6 +56,15 @@ export async function POST(request: NextRequest) {
       followingId,
     },
   });
+
+  // Notify the followed user (non-blocking)
+  createNotification(
+    followingId,
+    "follow",
+    "새 팔로워",
+    `${user.displayName}님이 팔로우했습니다`,
+    `/users/${user.id}`
+  ).catch(() => {});
 
   return NextResponse.json({ following: true });
 }

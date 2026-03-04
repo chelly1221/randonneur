@@ -18,6 +18,13 @@ interface SearchResult {
     courseName: string;
     userName: string;
   }[];
+  users: {
+    id: string;
+    displayName: string;
+    avatarKey: string | null;
+    bio: string | null;
+    completionCount: number;
+  }[];
 }
 
 export function SearchBar() {
@@ -69,7 +76,7 @@ export function SearchBar() {
     };
   }, [query]);
 
-  const hasResults = results && (results.courses.length > 0 || results.reviews.length > 0);
+  const hasResults = results && (results.courses.length > 0 || results.reviews.length > 0 || results.users.length > 0);
 
   function handleToggle() {
     setExpanded(true);
@@ -146,6 +153,40 @@ export function SearchBar() {
                     >
                       <span className="text-xs text-t-muted">{r.courseName}</span>
                       <p className="text-xs truncate">{r.content.replace(/<[^>]+>/g, "").slice(0, 80)}</p>
+                    </Link>
+                  ))}
+                </div>
+              )}
+              {results!.users.length > 0 && (
+                <div className="border-t border-t-border">
+                  <p className="px-3 pt-2 text-[10px] font-medium text-t-muted uppercase">사용자</p>
+                  {results!.users.map((u) => (
+                    <Link
+                      key={u.id}
+                      href={`/users/${u.id}`}
+                      onClick={() => { setOpen(false); setQuery(""); }}
+                      className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-t-hover"
+                    >
+                      {u.avatarKey ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={`/api/images/${encodeURIComponent(u.avatarKey)}`}
+                          alt={u.displayName}
+                          className="h-6 w-6 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-sky-darkblue text-[10px] font-medium text-white">
+                          {u.displayName.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <span className="font-medium">{u.displayName}</span>
+                        {u.completionCount > 0 && (
+                          <span className="ml-2 text-xs text-t-muted">
+                            완주 {u.completionCount}회
+                          </span>
+                        )}
+                      </div>
                     </Link>
                   ))}
                 </div>

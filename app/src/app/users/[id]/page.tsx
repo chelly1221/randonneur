@@ -119,15 +119,21 @@ export default async function PublicProfilePage({
           </div>
           {user.bio && <p className="mt-1 text-sm text-t-muted">{user.bio}</p>}
           <div className="mt-2 flex items-center gap-4 text-sm">
-            <div className="flex items-center gap-1">
+            <Link
+              href={`/users/${id}/followers`}
+              className="flex items-center gap-1 hover:text-t-link transition-colors"
+            >
               <Users className="h-3.5 w-3.5 text-t-muted" />
               <span className="font-medium">{followerCount}</span>
               <span className="text-t-muted">팔로워</span>
-            </div>
-            <div>
+            </Link>
+            <Link
+              href={`/users/${id}/followers?tab=following`}
+              className="hover:text-t-link transition-colors"
+            >
               <span className="font-medium">{followingCount}</span>
               <span className="text-t-muted"> 팔로잉</span>
-            </div>
+            </Link>
           </div>
           <p className="mt-1 text-xs text-t-faint">
             가입일: {format(new Date(user.createdAt), "yyyy년 M월 d일", { locale: ko })}

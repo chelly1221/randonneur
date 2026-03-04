@@ -17,6 +17,7 @@ import {
   ImagePlus,
   Flag,
   Leaf,
+  ScrollText,
 } from "lucide-react";
 import { useState } from "react";
 import { useServiceWorker } from "@/lib/use-service-worker";
@@ -33,6 +34,7 @@ const sidebarItems = [
   { href: "/admin/checkpoint-photos", label: "CP 사진", icon: ImagePlus },
   { href: "/admin/reports", label: "신고 관리", icon: Flag },
   { href: "/admin/seasonal", label: "시즌 추천", icon: Leaf },
+  { href: "/admin/audit-logs", label: "감사 로그", icon: ScrollText },
   { href: "/admin/system", label: "시스템 상태", icon: Activity },
   { href: "/admin/settings", label: "설정", icon: Settings },
 ];

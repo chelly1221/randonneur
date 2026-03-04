@@ -8,11 +8,13 @@ import { Archive, ArchiveRestore } from "lucide-react";
 interface ArchiveToggleButtonProps {
   courseId: string;
   archived: boolean;
+  onSuccess?: () => void;
 }
 
 export function ArchiveToggleButton({
   courseId,
   archived,
+  onSuccess,
 }: ArchiveToggleButtonProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -25,7 +27,11 @@ export function ArchiveToggleButton({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ archived: !archived }),
       });
-      router.refresh();
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        router.refresh();
+      }
     } finally {
       setLoading(false);
     }

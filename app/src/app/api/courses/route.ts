@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { DISTANCE_RANGES } from "@/types";
 import { Prisma } from "@prisma/client";
+import { logAuditAction, AUDIT_ACTIONS } from "@/lib/audit";
 
 const SR_CATEGORY = "sr-600";
 const SR_TIME_LIMIT = "60시간";
@@ -127,6 +128,14 @@ export async function POST(request: NextRequest) {
       course.id
     );
   }
+
+  logAuditAction(
+    session.user.id,
+    AUDIT_ACTIONS.COURSE_CREATE,
+    "course",
+    course.id,
+    { name: course.name, courseNumber: course.courseNumber }
+  );
 
   return NextResponse.json(course, { status: 201 });
 }

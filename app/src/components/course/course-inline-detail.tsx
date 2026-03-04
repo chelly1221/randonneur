@@ -22,6 +22,7 @@ import {
   Plus,
   X,
 } from "lucide-react";
+import { ShareButton } from "@/components/course/share-button";
 
 interface CheckpointData {
   id: string;
@@ -378,6 +379,13 @@ export function CourseInlineDetail({
           </div>
 
           <div className="shrink-0 flex items-stretch gap-1">
+            <div className="self-stretch inline-flex items-center" onClick={(e) => e.stopPropagation()}>
+              <ShareButton
+                courseId={courseId}
+                courseName={course?.name ?? courseBasic.name}
+                courseDistance={course?.distanceKm ?? courseBasic.distanceKm}
+              />
+            </div>
             {onToggleMap && (
               <button
                 type="button"

@@ -10,7 +10,7 @@ import {
 import { createPortal } from "react-dom";
 import { useSession } from "next-auth/react";
 import { UserAvatar } from "@/components/user/user-avatar";
-import { Trophy, BookOpen, UserPlus, UserCheck, ExternalLink } from "lucide-react";
+import { Trophy, UserPlus, UserCheck, ExternalLink } from "lucide-react";
 import Link from "next/link";
 
 interface UserPreviewData {
@@ -20,7 +20,6 @@ interface UserPreviewData {
   role: string;
   avatarKey: string | null;
   completionCount: number;
-  journalCount: number;
   recentActivity: {
     type: "completion" | "review";
     courseName: string;
@@ -369,13 +368,6 @@ export function UserPopover({ userId, displayName, children }: UserPopoverProps)
                       <Trophy className="h-3 w-3 text-sky-blue" />
                       <span className="text-xs text-t-text">
                         완주 <strong>{preview.completionCount}</strong>회
-                      </span>
-                    </div>
-                    <span className="text-t-faint">&middot;</span>
-                    <div className="flex items-center gap-1">
-                      <BookOpen className="h-3 w-3 text-sky-orange" />
-                      <span className="text-xs text-t-text">
-                        일지 <strong>{preview.journalCount}</strong>편
                       </span>
                     </div>
                   </div>

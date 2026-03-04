@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Flame, Award } from "lucide-react";
+import { useEffect, useState, useCallback } from "react";
+import { Flame, Award, ChevronLeft, ChevronRight } from "lucide-react";
 
 interface StreakData {
   dates: string[];
   currentStreak: number;
   longestStreak: number;
+  availableYears: number[];
+  year: number | null;
 }
 
 interface StreakCalendarProps {
@@ -19,16 +21,31 @@ const DAY_LABELS = ["월", "화", "수", "목", "금", "토", "일"];
 export function StreakCalendar({ userId }: StreakCalendarProps) {
   const [data, setData] = useState<StreakData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [selectedYear, setSelectedYear] = useState<number | null>(null);
+
+  const fetchData = useCallback(
+    (year: number | null) => {
+      setLoading(true);
+      const url = year
+        ? `/api/users/${userId}/streak?year=${year}`
+        : `/api/users/${userId}/streak`;
+      fetch(url)
+        .then((r) => r.json())
+        .then((d: StreakData) => {
+          setData(d);
+          // On first load, keep selectedYear as null (shows "최근 12개월")
+        })
+        .catch(() => {})
+        .finally(() => setLoading(false));
+    },
+    [userId]
+  );
 
   useEffect(() => {
-    fetch(`/api/users/${userId}/streak`)
-      .then((r) => r.json())
-      .then(setData)
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [userId]);
+    fetchData(selectedYear);
+  }, [fetchData, selectedYear]);
 
-  if (loading) {
+  if (loading && !data) {
     return (
       <div className="space-y-2">
         <div className="h-4 w-32 animate-pulse rounded bg-t-subtle" />
@@ -40,24 +57,79 @@ export function StreakCalendar({ userId }: StreakCalendarProps) {
   if (!data) return null;
 
   const dateSet = new Set(data.dates);
+  const currentYear = new Date().getFullYear();
+  const availableYears = data.availableYears ?? [];
 
-  // Build grid: 53 weeks x 7 days, ending at today
+  // Determine if we can navigate to previous/next year
+  const canGoPrev = availableYears.length > 0 && (
+    selectedYear === null
+      ? availableYears.some((y) => y < currentYear)
+      : availableYears.some((y) => y < selectedYear)
+  );
+  const canGoNext = selectedYear !== null && (
+    selectedYear < currentYear ||
+    availableYears.some((y) => y > selectedYear)
+  );
+
+  const handlePrevYear = () => {
+    if (selectedYear === null) {
+      // Going from "last 12 months" to previous year
+      const prevYears = availableYears.filter((y) => y < currentYear);
+      if (prevYears.length > 0) {
+        setSelectedYear(Math.max(...prevYears));
+      } else {
+        setSelectedYear(currentYear - 1);
+      }
+    } else {
+      setSelectedYear(selectedYear - 1);
+    }
+  };
+
+  const handleNextYear = () => {
+    if (selectedYear !== null) {
+      if (selectedYear + 1 >= currentYear) {
+        // Return to "last 12 months" view
+        setSelectedYear(null);
+      } else {
+        setSelectedYear(selectedYear + 1);
+      }
+    }
+  };
+
+  const handleSelectYear = (year: number | null) => {
+    setSelectedYear(year);
+  };
+
+  // Build grid
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // Find the Monday of the week 52 weeks ago
-  const startDate = new Date(today);
-  startDate.setDate(startDate.getDate() - 364); // ~52 weeks
-  // Adjust to Monday
-  const startDay = startDate.getDay();
-  const mondayOffset = startDay === 0 ? -6 : 1 - startDay;
-  startDate.setDate(startDate.getDate() + mondayOffset);
+  let startDate: Date;
+  let endDate: Date;
+
+  if (selectedYear !== null) {
+    // Show full year: Jan 1 - Dec 31 of the selected year
+    startDate = new Date(selectedYear, 0, 1);
+    endDate = new Date(selectedYear, 11, 31);
+    // Adjust start to Monday
+    const startDay = startDate.getDay();
+    const mondayOffset = startDay === 0 ? -6 : 1 - startDay;
+    startDate.setDate(startDate.getDate() + mondayOffset);
+  } else {
+    // Last 12 months (default behavior)
+    endDate = new Date(today);
+    startDate = new Date(today);
+    startDate.setDate(startDate.getDate() - 364);
+    const startDay = startDate.getDay();
+    const mondayOffset = startDay === 0 ? -6 : 1 - startDay;
+    startDate.setDate(startDate.getDate() + mondayOffset);
+  }
 
   // Generate all weeks
   const weeks: { date: Date; dateStr: string }[][] = [];
   const current = new Date(startDate);
 
-  while (current <= today) {
+  while (current <= endDate) {
     const week: { date: Date; dateStr: string }[] = [];
     for (let d = 0; d < 7; d++) {
       const cellDate = new Date(current);
@@ -79,8 +151,59 @@ export function StreakCalendar({ userId }: StreakCalendarProps) {
     }
   }
 
+  // Year label
+  const yearLabel = selectedYear !== null ? `${selectedYear}년` : "최근 12개월";
+
   return (
     <div>
+      {/* Year selector */}
+      <div className="mb-3 flex items-center gap-2">
+        <button
+          onClick={handlePrevYear}
+          disabled={!canGoPrev || loading}
+          className="rounded-md p-1 hover:bg-t-hover transition-colors text-t-muted disabled:opacity-30 disabled:cursor-not-allowed"
+          title="이전 년도"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+
+        <div className="relative">
+          <select
+            value={selectedYear === null ? "recent" : String(selectedYear)}
+            onChange={(e) => {
+              const val = e.target.value;
+              handleSelectYear(val === "recent" ? null : parseInt(val, 10));
+            }}
+            className="appearance-none rounded-md border border-t-border bg-t-surface px-3 py-1 text-sm font-medium text-t-text cursor-pointer pr-6"
+          >
+            <option value="recent">최근 12개월</option>
+            {/* Always include current year */}
+            {!availableYears.includes(currentYear) && (
+              <option value={String(currentYear)}>{currentYear}년</option>
+            )}
+            {availableYears.map((y) => (
+              <option key={y} value={String(y)}>
+                {y}년
+              </option>
+            ))}
+          </select>
+          <ChevronLeft className="pointer-events-none absolute right-1.5 top-1/2 h-3 w-3 -translate-y-1/2 rotate-[-90deg] text-t-muted" />
+        </div>
+
+        <button
+          onClick={handleNextYear}
+          disabled={!canGoNext || loading}
+          className="rounded-md p-1 hover:bg-t-hover transition-colors text-t-muted disabled:opacity-30 disabled:cursor-not-allowed"
+          title="다음 년도"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </button>
+
+        {loading && (
+          <div className="ml-1 h-3 w-3 animate-spin rounded-full border-2 border-t-muted border-t-transparent" />
+        )}
+      </div>
+
       <div className="overflow-x-auto">
         <div className="inline-block min-w-fit">
           {/* Month labels */}
@@ -121,16 +244,20 @@ export function StreakCalendar({ userId }: StreakCalendarProps) {
                 {week.map((cell) => {
                   const isActive = dateSet.has(cell.dateStr);
                   const isFuture = cell.date > today;
+                  // For year view, also hide cells outside the selected year
+                  const isOutOfRange =
+                    selectedYear !== null &&
+                    cell.date.getFullYear() !== selectedYear;
                   return (
                     <div
                       key={cell.dateStr}
                       title={
-                        isFuture
+                        isFuture || isOutOfRange
                           ? ""
                           : `${cell.dateStr}${isActive ? " - 완주" : ""}`
                       }
                       className={`h-[11px] w-[11px] rounded-sm ${
-                        isFuture
+                        isFuture || isOutOfRange
                           ? "bg-transparent"
                           : isActive
                           ? "bg-sky-blue"

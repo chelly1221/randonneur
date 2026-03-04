@@ -2,7 +2,7 @@
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Users } from "lucide-react";
+import { CalendarPlus, MapPin, Users } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
@@ -134,6 +134,19 @@ export function EventCard({ event }: { event: EventCardData }) {
                 )}
               </div>
             </div>
+
+            {/* iCal download */}
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                window.open(`/api/events/${event.id}/ical`);
+              }}
+              className="self-center shrink-0 rounded-md p-1.5 hover:bg-sky-blue/10 transition-colors text-t-muted hover:text-sky-blue"
+              title="캘린더에 추가"
+            >
+              <CalendarPlus className="h-4 w-4" />
+            </button>
           </div>
         </CardContent>
       </Card>

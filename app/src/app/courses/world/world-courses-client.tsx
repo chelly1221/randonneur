@@ -2,12 +2,12 @@
 
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { RangeSlider } from "@/components/ui/range-slider";
 import { ElevationProfile } from "@/components/course/elevation-profile";
+import { CheckpointPopup } from "@/components/course/checkpoint-popup";
 import { CourseInlineDetail, type DetailData } from "@/components/course/course-inline-detail";
-import { interpolatePointOnLine } from "@/lib/geo-utils";
+import { interpolatePointOnLine, closestPointOnLine } from "@/lib/geo-utils";
 import {
   Search,
   Download,
@@ -18,6 +18,9 @@ import {
   ArrowRight,
   X,
   Layers,
+  Locate,
+  Compass,
+  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import maplibregl from "maplibre-gl";
@@ -25,6 +28,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 
 interface WorldCourse {
   id: string;
+  slug: string;
   name: string;
   courseNumber: string | null;
   distanceKm: number;
@@ -55,26 +59,30 @@ const MAP_TILES = [
     id: "osm",
     label: "OSM",
     tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+    preview: "/tiles/osm.png",
     attribution:
       '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
   },
   {
     id: "topo",
-    label: "Topo",
+    label: "지형",
     tiles: ["https://tile.opentopomap.org/{z}/{x}/{y}.png"],
+    preview: "/tiles/topo.png",
     attribution:
       '&copy; <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)',
   },
   {
     id: "light",
-    label: "Light",
+    label: "밝은",
     tiles: ["https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png"],
+    preview: "/tiles/light.png",
     attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
   },
   {
     id: "dark",
-    label: "Dark",
+    label: "어두운",
     tiles: ["https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png"],
+    preview: "/tiles/dark.png",
     attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
   },
 ] as const;
@@ -91,22 +99,22 @@ function countryFlag(code: string | null): string {
 
 /** Country code to name */
 const COUNTRY_NAMES: Record<string, string> = {
-  AU: "Australia",
-  BE: "Belgium",
-  CA: "Canada",
-  DE: "Germany",
-  DK: "Denmark",
-  ES: "Spain",
-  FR: "France",
-  GB: "United Kingdom",
-  IE: "Ireland",
-  IT: "Italy",
-  JP: "Japan",
-  KR: "Korea",
-  NO: "Norway",
-  NZ: "New Zealand",
-  US: "United States",
-  ZA: "South Africa",
+  AU: "호주",
+  BE: "벨기에",
+  CA: "캐나다",
+  DE: "독일",
+  DK: "덴마크",
+  ES: "스페인",
+  FR: "프랑스",
+  GB: "영국",
+  IE: "아일랜드",
+  IT: "이탈리아",
+  JP: "일본",
+  KR: "한국",
+  NO: "노르웨이",
+  NZ: "뉴질랜드",
+  US: "미국",
+  ZA: "남아공",
 };
 
 /** Category code to display label */
@@ -159,12 +167,15 @@ export function WorldCoursesClient({
   // Filters
   const [search, setSearch] = useState("");
   const [countryFilter, setCountryFilter] = useState("");
-  const [regionFilter, setRegionFilter] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("");
   const [distFilter, setDistFilter] = useState<[number, number]>(distanceRange);
   const [elevFilter, setElevFilter] = useState<[number, number]>(elevationRange);
   const [sortBy, setSortBy] = useState<"distance" | "elevation" | "name" | "country">("country");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [searchExpanded, setSearchExpanded] = useState(false);
+  const [countryDropdownOpen, setCountryDropdownOpen] = useState(false);
+  const [countrySearch, setCountrySearch] = useState("");
+  const countryDropdownRef = useRef<HTMLDivElement>(null);
+  const countryFilterRef = useRef(countryFilter);
 
   // Selection / hover
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -194,6 +205,16 @@ export function WorldCoursesClient({
   const [mapTileId, setMapTileId] = useState("osm");
   const [tileMenuOpen, setTileMenuOpen] = useState(false);
 
+  // Checkpoint popup
+  const [selectedCp, setSelectedCp] = useState<{ name: string; index: number; lngLat: [number, number]; imageKey?: string | null } | null>(null);
+
+  // Geolocation
+  const [geoActive, setGeoActive] = useState(false);
+  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
+  const geoWatchRef = useRef<number | null>(null);
+  const userMarkerRef = useRef<maplibregl.Marker | null>(null);
+  const closestMarkerRef = useRef<maplibregl.Marker | null>(null);
+
   const filtered = useMemo(() => {
     let result = courses;
     if (search) {
@@ -209,12 +230,6 @@ export function WorldCoursesClient({
     if (countryFilter) {
       result = result.filter((c) => c.country === countryFilter);
     }
-    if (regionFilter) {
-      result = result.filter((c) => c.region === regionFilter);
-    }
-    if (categoryFilter) {
-      result = result.filter((c) => c.category.includes(categoryFilter));
-    }
     result = result.filter(
       (c) => c.distanceKm >= distFilter[0] && c.distanceKm <= distFilter[1]
     );
@@ -222,29 +237,31 @@ export function WorldCoursesClient({
       (c) => c.elevationM >= elevFilter[0] && c.elevationM <= elevFilter[1]
     );
     return result;
-  }, [courses, search, countryFilter, regionFilter, categoryFilter, distFilter, elevFilter]);
+  }, [courses, search, countryFilter, distFilter, elevFilter]);
 
   const filteredSorted = useMemo(() => {
+    const dir = sortOrder === "asc" ? 1 : -1;
+
     return [...filtered].sort((a, b) => {
       if (sortBy === "distance") {
-        if (a.distanceKm !== b.distanceKm) return a.distanceKm - b.distanceKm;
-        return a.name.localeCompare(b.name);
+        if (a.distanceKm !== b.distanceKm) return (a.distanceKm - b.distanceKm) * dir;
+        return a.name.localeCompare(b.name) * dir;
       }
       if (sortBy === "elevation") {
-        if (a.elevationM !== b.elevationM) return b.elevationM - a.elevationM;
-        return a.name.localeCompare(b.name);
+        if (a.elevationM !== b.elevationM) return (a.elevationM - b.elevationM) * dir;
+        return a.name.localeCompare(b.name) * dir;
       }
       if (sortBy === "name") {
-        return a.name.localeCompare(b.name);
+        return a.name.localeCompare(b.name) * dir;
       }
       // country sort (default)
       const ca = a.country || "";
       const cb = b.country || "";
-      if (ca !== cb) return ca.localeCompare(cb);
-      if (a.distanceKm !== b.distanceKm) return a.distanceKm - b.distanceKm;
-      return a.name.localeCompare(b.name);
+      if (ca !== cb) return ca.localeCompare(cb) * dir;
+      if (a.distanceKm !== b.distanceKm) return (a.distanceKm - b.distanceKm) * dir;
+      return a.name.localeCompare(b.name) * dir;
     });
-  }, [filtered, sortBy]);
+  }, [filtered, sortBy, sortOrder]);
 
   const filteredIdKey = filtered.map((c) => c.id).join(",");
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -254,8 +271,6 @@ export function WorldCoursesClient({
   const hasFilters =
     !!search ||
     !!countryFilter ||
-    !!regionFilter ||
-    !!categoryFilter ||
     distFilter[0] !== distanceRange[0] ||
     distFilter[1] !== distanceRange[1] ||
     elevFilter[0] !== elevationRange[0] ||
@@ -264,8 +279,7 @@ export function WorldCoursesClient({
   const clearAll = useCallback(() => {
     setSearch("");
     setCountryFilter("");
-    setRegionFilter("");
-    setCategoryFilter("");
+    setCountrySearch("");
     setDistFilter(distanceRange);
     setElevFilter(elevationRange);
   }, [distanceRange, elevationRange]);
@@ -281,6 +295,10 @@ export function WorldCoursesClient({
     filteredIdsRef.current = filteredIds;
   }, [filteredIds]);
 
+  useEffect(() => {
+    countryFilterRef.current = countryFilter;
+  }, [countryFilter]);
+
   // Close search panel on outside click
   useEffect(() => {
     if (!searchExpanded) return;
@@ -293,6 +311,19 @@ export function WorldCoursesClient({
     document.addEventListener("mousedown", onDocClick);
     return () => document.removeEventListener("mousedown", onDocClick);
   }, [searchExpanded]);
+
+  // Close country dropdown on outside click
+  useEffect(() => {
+    if (!countryDropdownOpen) return;
+    const onDocClick = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (countryDropdownRef.current && !countryDropdownRef.current.contains(target)) {
+        setCountryDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [countryDropdownOpen]);
 
   // URL sync
   useEffect(() => {
@@ -363,7 +394,6 @@ export function WorldCoursesClient({
           if (!data) return null;
           const normalized: DetailData = {
             elevations: data.elevations ?? [],
-            elevationBands: data.elevationBands ?? [],
             geojson: data.geojson ?? null,
             bounds: data.bounds ?? null,
             checkpoints: data.checkpoints ?? [],
@@ -414,6 +444,94 @@ export function WorldCoursesClient({
     [detailData?.geojson]
   );
 
+  // Elevation chart CP click -> open popup
+  const handleCheckpointClick = useCallback(
+    (cp: { id: string; name: string; distanceKm: number; imageKey?: string | null }, index: number) => {
+      if (!detailData?.geojson) return;
+      const point = interpolatePointOnLine(detailData.geojson, cp.distanceKm);
+      if (point) {
+        setSelectedCp({ name: cp.name, index, lngLat: point, imageKey: cp.imageKey });
+      }
+    },
+    [detailData?.geojson]
+  );
+
+  // Geolocation: start/stop watching
+  const startGeo = useCallback(() => {
+    if (!navigator.geolocation) return;
+    setGeoActive(true);
+    geoWatchRef.current = navigator.geolocation.watchPosition(
+      (pos) => setUserLocation([pos.coords.longitude, pos.coords.latitude]),
+      () => {},
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 },
+    );
+  }, []);
+
+  const stopGeo = useCallback(() => {
+    if (geoWatchRef.current !== null) {
+      navigator.geolocation.clearWatch(geoWatchRef.current);
+      geoWatchRef.current = null;
+    }
+    setGeoActive(false);
+    setUserLocation(null);
+  }, []);
+
+  // Compute closest point on selected course
+  const closestInfo = useMemo(() => {
+    if (!userLocation || !detailData?.geojson) return null;
+    return closestPointOnLine(detailData.geojson, {
+      lng: userLocation[0],
+      lat: userLocation[1],
+    });
+  }, [userLocation, detailData?.geojson]);
+
+  const currentDistanceKm = closestInfo?.distanceAlongKm ?? null;
+
+  // User location marker (blue pulsing)
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    if (userLocation) {
+      if (!userMarkerRef.current) {
+        const el = document.createElement("div");
+        el.style.cssText =
+          "width:16px;height:16px;background:#3b82f6;border:3px solid #fff;border-radius:50%;box-shadow:0 0 0 4px rgba(59,130,246,0.3);";
+        el.className = "animate-pulse";
+        userMarkerRef.current = new maplibregl.Marker({ element: el })
+          .setLngLat(userLocation)
+          .addTo(map);
+      } else {
+        userMarkerRef.current.setLngLat(userLocation);
+      }
+    } else {
+      userMarkerRef.current?.remove();
+      userMarkerRef.current = null;
+    }
+  }, [userLocation]);
+
+  // Closest point on course marker (green)
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    if (closestInfo) {
+      if (!closestMarkerRef.current) {
+        const el = document.createElement("div");
+        el.style.cssText =
+          "width:12px;height:12px;background:#22c55e;border:2px solid #fff;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,0.3);";
+        closestMarkerRef.current = new maplibregl.Marker({ element: el })
+          .setLngLat(closestInfo.point)
+          .addTo(map);
+      } else {
+        closestMarkerRef.current.setLngLat(closestInfo.point);
+      }
+    } else {
+      closestMarkerRef.current?.remove();
+      closestMarkerRef.current = null;
+    }
+  }, [closestInfo]);
+
   // Initialize map
   useEffect(() => {
     if (!mapContainerRef.current) return;
@@ -439,7 +557,6 @@ export function WorldCoursesClient({
     });
 
     map.addControl(new maplibregl.AttributionControl({ compact: true }));
-    map.addControl(new maplibregl.NavigationControl(), "top-right");
     map.addControl(
       new maplibregl.FullscreenControl({ container: mapWrapperRef.current! }),
       "top-right"
@@ -641,6 +758,30 @@ export function WorldCoursesClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filteredIdKey]);
 
+  // Zoom to country when country filter changes
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReadyRef.current) return;
+    if (selectedIdRef.current) return;
+
+    const bounds = new maplibregl.LngLatBounds();
+    let hasCoords = false;
+    for (const feature of featureCollection.features) {
+      if (countryFilter && feature.properties?.country !== countryFilter) continue;
+      if (!countryFilter && !filteredIdsRef.current.has(feature.properties?.id)) continue;
+      if (feature.geometry.type === "LineString") {
+        for (const c of feature.geometry.coordinates) {
+          bounds.extend(c as [number, number]);
+          hasCoords = true;
+        }
+      }
+    }
+    if (hasCoords) {
+      map.fitBounds(bounds, { padding: 60, maxZoom: 14 });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [countryFilter]);
+
   // Update active/highlight filter on map
   useEffect(() => {
     const map = mapRef.current;
@@ -665,6 +806,8 @@ export function WorldCoursesClient({
     if (detailData) return;
 
     if (!selectedId) {
+      // Country zoom is handled by the dedicated countryFilter effect
+      if (countryFilterRef.current) return;
       // Zoom back out to show all visible courses
       const bounds = new maplibregl.LngLatBounds();
       let hasCoords = false;
@@ -806,6 +949,10 @@ export function WorldCoursesClient({
         el.style.cssText =
           "width:20px;height:20px;border-radius:50%;background:#facc15;border:2px solid #111;box-shadow:0 1px 4px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:bold;color:#111;cursor:pointer;";
         el.textContent = String(i + 1);
+        el.addEventListener("click", (ev) => {
+          ev.stopPropagation();
+          setSelectedCp({ name: cp.name, index: i, lngLat: point, imageKey: cp.imageKey });
+        });
 
         const marker = new maplibregl.Marker({ element: el })
           .setLngLat(point)
@@ -863,7 +1010,7 @@ export function WorldCoursesClient({
     ? courses.find((c) => c.id === selectedId) ?? null
     : null;
 
-  const hasGeometryCount = courses.filter((c) => c.hasGeometry).length;
+
 
   return (
     <div
@@ -886,10 +1033,9 @@ export function WorldCoursesClient({
               <div className="flex items-center gap-2 shrink-0">
                 <Globe className="h-5 w-5 text-sky-blue" />
                 <div>
-                  <h1 className="text-lg font-bold leading-tight">World Courses</h1>
+                  <h1 className="text-lg font-bold leading-tight">세계 코스</h1>
                   <p className="text-[11px] text-t-muted">
-                    {courses.length} courses
-                    {hasGeometryCount > 0 && ` (${hasGeometryCount} on map)`}
+                    {courses.length}개
                   </p>
                 </div>
               </div>
@@ -898,7 +1044,7 @@ export function WorldCoursesClient({
               <div ref={searchPanelRef} className="relative flex-1 min-w-[220px]">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-t-faint" />
                 <Input
-                  placeholder="Search courses..."
+                  placeholder="코스 검색..."
                   className="pl-9"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
@@ -908,50 +1054,63 @@ export function WorldCoursesClient({
                 {searchExpanded && (
                   <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-20 rounded-xl border border-t-border bg-t-surface p-3 shadow-lg">
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <div>
-                        <label className="text-[11px] font-medium text-t-muted mb-1 block">Country</label>
-                        <Select
-                          value={countryFilter}
-                          onChange={(e) => setCountryFilter(e.target.value)}
-                          className="w-full"
+                      {/* 국가 — 검색 가능 커스텀 드롭다운 */}
+                      <div ref={countryDropdownRef} className="relative">
+                        <button
+                          type="button"
+                          onClick={() => { setCountryDropdownOpen((v) => !v); setCountrySearch(""); }}
+                          className="flex w-full items-center justify-between rounded-md border border-t-border bg-t-bg px-3 py-1.5 text-sm hover:border-t-hover"
                         >
-                          <option value="">All Countries</option>
-                          {countries.map((c) => (
-                            <option key={c} value={c}>
-                              {countryFlag(c)} {COUNTRY_NAMES[c] || c}
-                            </option>
-                          ))}
-                        </Select>
-                      </div>
-                      <div>
-                        <label className="text-[11px] font-medium text-t-muted mb-1 block">Region</label>
-                        <Select
-                          value={regionFilter}
-                          onChange={(e) => setRegionFilter(e.target.value)}
-                          className="w-full"
-                        >
-                          <option value="">All Regions</option>
-                          {regions.sort().map((r) => (
-                            <option key={r} value={r}>
-                              {r}
-                            </option>
-                          ))}
-                        </Select>
-                      </div>
-                      <div>
-                        <label className="text-[11px] font-medium text-t-muted mb-1 block">Category</label>
-                        <Select
-                          value={categoryFilter}
-                          onChange={(e) => setCategoryFilter(e.target.value)}
-                          className="w-full"
-                        >
-                          <option value="">All Categories</option>
-                          {categories.map((c) => (
-                            <option key={c} value={c}>
-                              {CATEGORY_LABELS[c] || c}
-                            </option>
-                          ))}
-                        </Select>
+                          <span>
+                            {countryFilter
+                              ? `${countryFlag(countryFilter)} ${COUNTRY_NAMES[countryFilter] || countryFilter}`
+                              : "전체 국가"}
+                          </span>
+                          <ChevronDown className="h-3.5 w-3.5 text-t-muted" />
+                        </button>
+                        {countryDropdownOpen && (
+                          <div className="absolute left-0 right-0 top-full z-30 mt-1 rounded-lg border border-t-border bg-t-surface shadow-lg">
+                            <div className="p-2 border-b border-t-border">
+                              <div className="relative">
+                                <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-t-faint" />
+                                <input
+                                  type="text"
+                                  value={countrySearch}
+                                  onChange={(e) => setCountrySearch(e.target.value)}
+                                  placeholder="국가 검색..."
+                                  className="w-full rounded-md border border-t-border bg-t-bg pl-7 pr-2 py-1 text-xs outline-none focus:border-sky-blue"
+                                  autoFocus
+                                />
+                              </div>
+                            </div>
+                            <div className="max-h-48 overflow-y-auto py-1">
+                              <button
+                                type="button"
+                                onClick={() => { setCountryFilter(""); setCountryDropdownOpen(false); }}
+                                className={`w-full px-3 py-1.5 text-left text-sm hover:bg-t-hover ${!countryFilter ? "bg-t-hover font-medium" : ""}`}
+                              >
+                                전체 국가
+                              </button>
+                              {countries
+                                .filter((c) => {
+                                  if (!countrySearch) return true;
+                                  const q = countrySearch.toLowerCase();
+                                  const name = (COUNTRY_NAMES[c] || c).toLowerCase();
+                                  return name.includes(q) || c.toLowerCase().includes(q);
+                                })
+                                .map((c) => (
+                                  <button
+                                    key={c}
+                                    type="button"
+                                    onClick={() => { setCountryFilter(c); setCountryDropdownOpen(false); }}
+                                    className={`w-full px-3 py-1.5 text-left text-sm hover:bg-t-hover ${countryFilter === c ? "bg-t-hover font-medium" : ""}`}
+                                  >
+                                    {countryFlag(c)} {COUNTRY_NAMES[c] || c}
+                                  </button>
+                                ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                       <div />
                       <div>
@@ -963,7 +1122,7 @@ export function WorldCoursesClient({
                           step={10}
                           formatLabel={(v) => `${v}km`}
                           tone="distance"
-                          label="Distance"
+                          label="거리"
                         />
                       </div>
                       <div>
@@ -975,7 +1134,7 @@ export function WorldCoursesClient({
                           step={100}
                           formatLabel={(v) => `${v}m`}
                           tone="elevation"
-                          label="Elevation"
+                          label="고도"
                         />
                       </div>
                     </div>
@@ -983,7 +1142,7 @@ export function WorldCoursesClient({
                       {hasFilters && (
                         <Button variant="ghost" size="sm" onClick={clearAll}>
                           <X className="mr-1 h-3.5 w-3.5" />
-                          Reset
+                          초기화
                         </Button>
                       )}
                       <Button
@@ -991,27 +1150,21 @@ export function WorldCoursesClient({
                         size="sm"
                         onClick={() => setSearchExpanded(false)}
                       >
-                        Close
+                        닫기
                       </Button>
                     </div>
                   </div>
                 )}
               </div>
 
-              {/* Quick country/category filter chips */}
+              {/* Batch download */}
               <div className="flex items-center gap-1.5 shrink-0">
-                <Select
-                  value={countryFilter}
-                  onChange={(e) => setCountryFilter(e.target.value)}
-                  className="w-auto min-w-[100px] text-xs"
-                >
-                  <option value="">All Countries</option>
-                  {countries.map((c) => (
-                    <option key={c} value={c}>
-                      {countryFlag(c)} {COUNTRY_NAMES[c] || c}
-                    </option>
-                  ))}
-                </Select>
+                <a href="/api/courses/batch-download">
+                  <Button variant="outline" size="sm">
+                    <Download className="mr-1 h-3.5 w-3.5" />
+                    GPX 다운로드
+                  </Button>
+                </a>
               </div>
             </div>
           </div>
@@ -1033,37 +1186,84 @@ export function WorldCoursesClient({
           <div ref={mapWrapperRef} className="relative flex-1 min-h-0">
             <div ref={mapContainerRef} className="h-full w-full" />
 
-            {/* Map tile selector */}
-            <div className="absolute bottom-3 left-3 z-10">
+            {/* Controls: right side, below fullscreen (managed by MapLibre) */}
+            <div className="absolute top-[46px] right-[10px] z-10 flex flex-col items-end gap-1.5">
+              {/* North reset */}
+              <button
+                onClick={() => mapRef.current?.resetNorthPitch({ duration: 300 })}
+                title="북쪽 초기화"
+                className="flex h-[29px] w-[29px] items-center justify-center rounded bg-white shadow-[0_0_0_2px_rgba(0,0,0,0.1)] hover:bg-gray-100"
+              >
+                <Compass className="h-4 w-4 text-gray-700" />
+              </button>
+
+              {/* Map tile selector */}
               {tileMenuOpen ? (
-                <div className="flex gap-1 rounded-lg bg-white/90 p-1 shadow-lg backdrop-blur-sm">
+                <div className="grid grid-cols-2 gap-1 rounded-lg bg-white p-1.5 shadow-[0_0_0_2px_rgba(0,0,0,0.1)]">
                   {MAP_TILES.map((t) => (
                     <button
                       key={t.id}
-                      onClick={() => {
-                        setMapTileId(t.id);
-                        setTileMenuOpen(false);
-                      }}
-                      className={`rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                      onClick={() => { setMapTileId(t.id); setTileMenuOpen(false); }}
+                      className={`relative w-[52px] h-[52px] rounded overflow-hidden border-2 transition-all ${
                         mapTileId === t.id
-                          ? "bg-sky-darkblue text-white"
-                          : "text-gray-700 hover:bg-gray-100"
+                          ? "border-sky-darkblue shadow-md"
+                          : "border-transparent hover:border-gray-300"
                       }`}
                     >
-                      {t.label}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={t.preview} alt={t.label} className="h-full w-full object-cover" />
+                      <span className={`absolute inset-x-0 bottom-0 text-[9px] font-bold py-0.5 ${
+                        t.id === "dark"
+                          ? "bg-black/60 text-white"
+                          : "bg-white/80 text-gray-800"
+                      }`}>
+                        {t.label}
+                      </span>
                     </button>
                   ))}
                 </div>
               ) : (
                 <button
                   onClick={() => setTileMenuOpen(true)}
-                  className="flex items-center gap-1.5 rounded-lg bg-white/90 px-2.5 py-1.5 text-xs font-medium text-gray-700 shadow-lg backdrop-blur-sm hover:bg-white"
+                  title={MAP_TILES.find((t) => t.id === mapTileId)?.label ?? "지도"}
+                  className="flex h-[29px] w-[29px] items-center justify-center rounded bg-white shadow-[0_0_0_2px_rgba(0,0,0,0.1)] hover:bg-gray-100"
                 >
-                  <Layers className="h-3.5 w-3.5" />
-                  {MAP_TILES.find((t) => t.id === mapTileId)?.label ?? "OSM"}
+                  <Layers className="h-4 w-4 text-gray-700" />
                 </button>
               )}
+
+              {/* My location */}
+              {!geoActive ? (
+                <button
+                  onClick={startGeo}
+                  title="내 위치"
+                  className="flex h-[29px] w-[29px] items-center justify-center rounded bg-white shadow-[0_0_0_2px_rgba(0,0,0,0.1)] hover:bg-gray-100"
+                >
+                  <Locate className="h-4 w-4 text-gray-700" />
+                </button>
+              ) : (
+                <div className="flex items-center gap-1.5 rounded bg-white px-2 py-1 shadow-[0_0_0_2px_rgba(0,0,0,0.1)]">
+                  <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
+                  <span className="text-xs text-gray-700">
+                    {currentDistanceKm != null ? `${currentDistanceKm.toFixed(1)} km` : "GPS"}
+                  </span>
+                  <button onClick={stopGeo} className="ml-0.5 text-gray-400 hover:text-gray-700">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )}
             </div>
+
+            {/* Checkpoint popup (street view + map) */}
+            {selectedCp && (
+              <CheckpointPopup
+                name={selectedCp.name}
+                index={selectedCp.index}
+                lngLat={selectedCp.lngLat}
+                imageKey={selectedCp.imageKey}
+                onClose={() => setSelectedCp(null)}
+              />
+            )}
           </div>
 
           {/* Elevation chart -- below map, always in DOM with max-height transition */}
@@ -1078,6 +1278,8 @@ export function WorldCoursesClient({
                   data={detailData.elevations}
                   checkpoints={detailData.checkpoints}
                   onHover={handleChartHover}
+                  onCheckpointClick={handleCheckpointClick}
+                  currentDistanceKm={currentDistanceKm}
                   compact
                 />
               </div>
@@ -1112,15 +1314,15 @@ export function WorldCoursesClient({
               <div className="flex flex-wrap items-center gap-1.5">
                 <span className="text-xs text-t-muted mr-1">
                   {filtered.length === courses.length
-                    ? `${courses.length} courses`
+                    ? `${courses.length}개 코스`
                     : `${filtered.length} / ${courses.length}`}
                 </span>
                 {(
                   [
-                    { value: "country", label: "Country" },
-                    { value: "distance", label: "Distance" },
-                    { value: "elevation", label: "Elevation" },
-                    { value: "name", label: "Name" },
+                    { value: "country", label: "국가" },
+                    { value: "distance", label: "거리" },
+                    { value: "elevation", label: "고도" },
+                    { value: "name", label: "이름" },
                   ] as const
                 ).map((opt) => {
                   const active = sortBy === opt.value;
@@ -1128,14 +1330,24 @@ export function WorldCoursesClient({
                     <button
                       key={opt.value}
                       type="button"
-                      onClick={() => setSortBy(opt.value)}
-                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors ${
+                      onClick={() => {
+                        if (active) {
+                          setSortOrder((prev) => prev === "asc" ? "desc" : "asc");
+                        } else {
+                          setSortBy(opt.value);
+                          setSortOrder("asc");
+                        }
+                      }}
+                      className={`inline-flex items-center gap-0.5 rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors ${
                         active
                           ? "bg-t-primary text-white"
                           : "bg-t-faint/50 text-t-muted hover:bg-t-hover"
                       }`}
                     >
                       {opt.label}
+                      {active && (
+                        <span className="text-[10px]">{sortOrder === "asc" ? "▲" : "▼"}</span>
+                      )}
                     </button>
                   );
                 })}
@@ -1145,7 +1357,7 @@ export function WorldCoursesClient({
             {filteredSorted.length === 0 ? (
               <div className="p-8 text-center text-t-muted">
                 <Globe className="mx-auto h-12 w-12 mb-3 opacity-50" />
-                <p>No courses found.</p>
+                <p>일치하는 코스 없음</p>
                 {hasFilters && (
                   <Button
                     variant="ghost"
@@ -1153,7 +1365,7 @@ export function WorldCoursesClient({
                     className="mt-2"
                     onClick={clearAll}
                   >
-                    Clear filters
+                    필터 초기화
                   </Button>
                 )}
               </div>
@@ -1293,6 +1505,7 @@ export function WorldCoursesClient({
                   courseId={selectedId}
                   courseBasic={{
                     id: selectedCourse.id,
+                    slug: selectedCourse.slug,
                     name: selectedCourse.name,
                     distanceKm: selectedCourse.distanceKm,
                     elevationM: selectedCourse.elevationM,

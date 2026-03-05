@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { generateUniqueCourseSlug } from "@/lib/slug";
 
 const SR_CATEGORY = "sr-600";
 const SR_TIME_LIMIT = "60시간";
@@ -43,8 +44,10 @@ export async function POST(request: NextRequest) {
       const estimatedTime = category.includes(SR_CATEGORY)
         ? SR_TIME_LIMIT
         : row.estimatedTime ?? null;
+      const courseSlug = await generateUniqueCourseSlug(row.name, row.distanceKm);
       const course = await prisma.course.create({
         data: {
+          slug: courseSlug,
           name: row.name,
           distanceKm: row.distanceKm,
           elevationM: row.elevationM,

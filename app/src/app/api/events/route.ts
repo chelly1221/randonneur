@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireActiveUser } from "@/lib/user-guard";
 import { auth } from "@/lib/auth";
+import { sanitizeHtml } from "@/lib/sanitize";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -122,7 +123,7 @@ export async function POST(request: NextRequest) {
     data: {
       userId: user!.id,
       title: title.trim(),
-      description: description?.trim() || null,
+      description: description ? sanitizeHtml(description.trim()) : null,
       eventType,
       courseId: courseId || null,
       location: location?.trim() || null,

@@ -62,6 +62,7 @@ export async function GET(
   return NextResponse.json({
     course: {
       id: course.id,
+      slug: course.slug,
       name: course.name,
       courseNumber: course.courseNumber,
       distanceKm: course.distanceKm,

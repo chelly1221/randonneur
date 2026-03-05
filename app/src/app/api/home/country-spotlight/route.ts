@@ -38,6 +38,7 @@ export async function GET() {
         where: { country: selectedCountry, archived: { not: true } },
         select: {
           id: true,
+          slug: true,
           name: true,
           distanceKm: true,
           elevationM: true,

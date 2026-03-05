@@ -54,3 +54,4 @@ yarn-error.log*
 # Misc
 *.tgz
 *.log
+.claude/worktrees/

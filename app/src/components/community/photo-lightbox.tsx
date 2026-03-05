@@ -9,7 +9,7 @@ interface PhotoLightboxProps {
   imageUrl: string;
   imageKey: string;
   user?: { id: string; displayName: string; avatarKey?: string | null } | null;
-  course?: { id: string; name: string; region?: string | null } | null;
+  course?: { id: string; slug: string; name: string; region?: string | null } | null;
   caption?: string | null;
   createdAt?: string | null;
   onClose: () => void;
@@ -100,7 +100,7 @@ export function PhotoLightbox({
           {/* Course link */}
           {course && (
             <Link
-              href={`/courses/${course.id}`}
+              href={`/courses/${course.slug}`}
               className="mt-1.5 block text-xs text-sky-blue hover:underline truncate"
               onClick={(e) => e.stopPropagation()}
             >

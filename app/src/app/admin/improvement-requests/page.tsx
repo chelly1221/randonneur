@@ -18,6 +18,8 @@ interface ImprovementRequest {
   id: string;
   category: string | null;
   content: string;
+  images: string[];
+  imageUrls: string[];
   status: string;
   adminNote: string | null;
   createdAt: string;
@@ -186,6 +188,29 @@ export default function AdminImprovementRequestsPage() {
                       {req.content}
                     </p>
                   </div>
+
+                  {req.imageUrls && req.imageUrls.length > 0 && (
+                    <div>
+                      <p className="text-xs font-medium text-t-muted mb-1">첨부 이미지</p>
+                      <div className="flex flex-wrap gap-2">
+                        {req.imageUrls.map((url, i) => (
+                          <a
+                            key={req.images[i] || i}
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={url}
+                              alt={`첨부 ${i + 1}`}
+                              className="h-20 w-20 rounded-lg object-cover border border-t-border hover:opacity-80 transition-opacity"
+                            />
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   <div>
                     <label

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
-import { Navigation, X } from "lucide-react";
+import { Locate, X } from "lucide-react";
 
 interface GeolocationTrackerProps {
   onLocationUpdate: (lngLat: [number, number] | null) => void;
@@ -55,14 +55,14 @@ export function GeolocationTracker({
   }, []);
 
   return (
-    <div className="absolute bottom-3 left-3 z-10">
+    <div className="absolute top-2 right-2 z-10">
       {!active ? (
         <button
           onClick={start}
           title="내 위치"
           className="flex h-[29px] w-[29px] items-center justify-center rounded bg-white shadow-[0_0_0_2px_rgba(0,0,0,0.1)] hover:bg-gray-100"
         >
-          <Navigation className="h-4 w-4 text-gray-700" />
+          <Locate className="h-4 w-4 text-gray-700" />
         </button>
       ) : (
         <div className="flex items-center gap-1.5 rounded bg-white px-2 py-1 shadow-[0_0_0_2px_rgba(0,0,0,0.1)]">

@@ -44,6 +44,7 @@ export async function GET(request: NextRequest) {
     take: limit + 1, // fetch one extra to check hasMore
     select: {
       id: true,
+      slug: true,
       courseNumber: true,
       name: true,
       distanceKm: true,

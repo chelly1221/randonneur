@@ -25,6 +25,7 @@ const COUNTRY_NAMES: Record<string, string> = {
 
 interface SampleCourse {
   id: string;
+  slug: string;
   name: string;
   distanceKm: number | null;
   elevationM: number | null;
@@ -45,9 +46,12 @@ export default function CountrySpotlight() {
 
   useEffect(() => {
     fetch("/api/home/country-spotlight")
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error("fetch failed");
+        return res.json();
+      })
       .then((json) => {
-        setData(json);
+        if (json && json.country) setData(json);
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -121,7 +125,7 @@ export default function CountrySpotlight() {
             {data.sampleCourses.map((course) => (
               <li key={course.id}>
                 <Link
-                  href={`/courses/${course.id}`}
+                  href={`/courses/${course.slug}`}
                   className="flex items-center justify-between rounded-md px-3 py-2 hover:bg-t-hover transition-colors group"
                 >
                   <div className="min-w-0 flex-1">

@@ -11,6 +11,7 @@ datasource db {
 
 model Course {
   id            String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  slug          String   @unique
   courseNumber  String?  @map("course_number") // unique only for active courses (partial index in DB)
   name          String
   distanceKm    Float    @map("distance_km")
@@ -103,6 +104,7 @@ model Completion {
   course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([courseId])
   @@index([completedAt])
   @@map("completions")
 }
@@ -115,6 +117,7 @@ model Download {
 
   course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
+  @@index([courseId])
   @@map("downloads")
 }
 
@@ -130,6 +133,7 @@ model Checkpoint {
   course           Course                     @relation(fields: [courseId], references: [id], onDelete: Cascade)
   photoSubmissions CheckpointPhotoSubmission[]
 
+  @@index([courseId])
   @@map("checkpoints")
 }
 
@@ -172,6 +176,7 @@ model Review {
   photos   ReviewPhoto[]
 
   @@index([userId])
+  @@index([courseId])
   @@index([createdAt])
   @@map("reviews")
 }
@@ -221,6 +226,7 @@ model ImprovementRequest {
   courseId  String   @map("course_id") @db.Uuid
   category  String?  @map("category")
   content   String
+  images    String[] @default([])
   status    String   @default("pending")
   adminNote String?  @map("admin_note")
   createdAt DateTime @default(now()) @map("created_at")

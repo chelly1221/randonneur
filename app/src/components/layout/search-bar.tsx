@@ -7,6 +7,7 @@ import Link from "next/link";
 interface SearchResult {
   courses: {
     id: string;
+    slug: string;
     name: string;
     distanceKm: number;
     region: string | null;
@@ -15,6 +16,7 @@ interface SearchResult {
     id: string;
     content: string;
     courseId: string;
+    courseSlug: string;
     courseName: string;
     userName: string;
   }[];
@@ -129,7 +131,7 @@ export function SearchBar() {
                   {results!.courses.map((c) => (
                     <Link
                       key={c.id}
-                      href={`/courses/${c.id}`}
+                      href={`/courses/${c.slug}`}
                       onClick={() => { setOpen(false); setQuery(""); }}
                       className="block px-3 py-2 text-sm hover:bg-t-hover"
                     >
@@ -147,7 +149,7 @@ export function SearchBar() {
                   {results!.reviews.map((r) => (
                     <Link
                       key={r.id}
-                      href={`/courses/${r.courseId}`}
+                      href={`/courses/${r.courseSlug || r.courseId}`}
                       onClick={() => { setOpen(false); setQuery(""); }}
                       className="block px-3 py-2 text-sm hover:bg-t-hover"
                     >

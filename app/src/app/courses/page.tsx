@@ -6,6 +6,7 @@ export const dynamic = "force-dynamic";
 
 interface CourseRow {
   id: string;
+  slug: string;
   name: string;
   distance_km: number;
   elevation_m: number;
@@ -24,7 +25,7 @@ export default async function CoursesPage() {
   // Fetch courses with simplified geometries
   const rows: CourseRow[] = await prisma.$queryRawUnsafe(`
     SELECT
-      id, name, distance_km, elevation_m, region, category,
+      id, slug, name, distance_km, elevation_m, region, category,
       start_location, end_location, course_number, gpx_file_key, tags, archived,
       ST_AsGeoJSON(ST_Simplify(geom, 0.001)) as geojson
     FROM courses
@@ -34,6 +35,7 @@ export default async function CoursesPage() {
 
   const courses = rows.map((r) => ({
     id: r.id,
+    slug: r.slug,
     name: r.name,
     distanceKm: r.distance_km,
     elevationM: r.elevation_m,
@@ -57,6 +59,7 @@ export default async function CoursesPage() {
           type: "Feature" as const,
           properties: {
             id: r.id,
+            slug: r.slug,
             name: r.name,
             region: r.region,
             distanceKm: r.distance_km,

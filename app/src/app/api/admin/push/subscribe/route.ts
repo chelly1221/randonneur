@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
   const user = await prisma.user.findUnique({
     where: { keycloakId: session.user.id },
   });
-  if (!user || user.role !== "admin") {
+  if (!user || !session.user.roles?.includes("admin")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

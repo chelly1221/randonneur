@@ -45,6 +45,67 @@ function CountryFlag({ country, size = 16 }: { country: string | null | undefine
   );
 }
 
+const COUNTRY_KO: Record<string, string> = {
+  "Allemagne": "독일",
+  "Argentina": "아르헨티나",
+  "Armenia": "아르메니아",
+  "Australia": "호주",
+  "Austria": "오스트리아",
+  "Belgium": "벨기에",
+  "Bosnia and Hercegovina": "보스니아",
+  "Brasil": "브라질",
+  "Bulgaria": "불가리아",
+  "Cambodia": "캄보디아",
+  "Canada": "캐나다",
+  "Chile": "칠레",
+  "China": "중국",
+  "Croatia": "크로아티아",
+  "Czech Republic": "체코",
+  "Denmark": "덴마크",
+  "Finland": "핀란드",
+  "France": "프랑스",
+  "Georgia": "조지아",
+  "Greece": "그리스",
+  "Hong Kong": "홍콩",
+  "Hungary": "헝가리",
+  "India": "인도",
+  "Indonesia": "인도네시아",
+  "Ireland": "아일랜드",
+  "Israel": "이스라엘",
+  "Italy": "이탈리아",
+  "Japan": "일본",
+  "Korea": "한국",
+  "Kyrgyzstan": "키르기스스탄",
+  "Latvia": "라트비아",
+  "Lithuania": "리투아니아",
+  "Macao": "마카오",
+  "Macedonia": "마케도니아",
+  "Malaysia": "말레이시아",
+  "Mexico": "멕시코",
+  "Moldova": "몰도바",
+  "New Zealand": "뉴질랜드",
+  "Norway": "노르웨이",
+  "Philippines": "필리핀",
+  "Poland": "폴란드",
+  "Portugal": "포르투갈",
+  "Romania": "루마니아",
+  "Serbia": "세르비아",
+  "Singapore": "싱가포르",
+  "Slovenia": "슬로베니아",
+  "South Africa": "남아프리카",
+  "Spain": "스페인",
+  "Sweden": "스웨덴",
+  "Switzerland": "스위스",
+  "Taiwan": "대만",
+  "The Netherlands": "네덜란드",
+  "Ukraine": "우크라이나",
+  "United Kingdom": "영국",
+  "Uruguay": "우루과이",
+  "USA": "미국",
+  "Uzbekistan": "우즈베키스탄",
+  "Vietnam": "베트남",
+};
+
 const EVENT_TYPE_LABELS: Record<string, string> = {
   brevet: "브레베",
   group_ride: "그룹라이드",
@@ -107,7 +168,7 @@ export function EventCard({ event }: { event: EventCardData }) {
                 </Badge>
                 {event.country && event.country !== "Korea" && (
                   <span className="text-[9px] px-1.5 py-0.5 rounded bg-sky-orange/10 text-sky-orange font-medium">
-                    {event.country}
+                    {COUNTRY_KO[event.country] || event.country}
                   </span>
                 )}
                 {event.sourceType && (

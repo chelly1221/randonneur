@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { DISTANCE_RANGES } from "@/types";
 import { Prisma } from "@prisma/client";
 import { logAuditAction, AUDIT_ACTIONS } from "@/lib/audit";
+import { generateUniqueCourseSlug } from "@/lib/slug";
 
 const SR_CATEGORY = "sr-600";
 const SR_TIME_LIMIT = "60시간";
@@ -27,8 +28,8 @@ export async function GET(request: NextRequest) {
   const category = searchParams.get("category");
   const country = searchParams.get("country");
   const q = searchParams.get("q");
-  const page = parseInt(searchParams.get("page") ?? "1");
-  const limit = parseInt(searchParams.get("limit") ?? "20");
+  const page = Math.max(1, parseInt(searchParams.get("page") ?? "1") || 1);
+  const limit = Math.min(Math.max(1, parseInt(searchParams.get("limit") ?? "20") || 20), 100);
   const withGeojson = searchParams.get("geojson") === "true";
 
   const where: Prisma.CourseWhereInput = {};
@@ -98,8 +99,10 @@ export async function POST(request: NextRequest) {
     ? SR_TIME_LIMIT
     : body.estimatedTime ?? null;
 
+  const courseSlug = await generateUniqueCourseSlug(body.name, body.distanceKm, body.courseNumber);
   const course = await prisma.course.create({
     data: {
+      slug: courseSlug,
       courseNumber: body.courseNumber ?? null,
       name: body.name,
       distanceKm: body.distanceKm,

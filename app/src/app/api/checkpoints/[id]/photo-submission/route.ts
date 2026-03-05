@@ -42,6 +42,9 @@ export async function POST(
   if (!allowedExts.includes(ext)) {
     return NextResponse.json({ error: "Invalid file type" }, { status: 400 });
   }
+  if (file.size > 10 * 1024 * 1024) {
+    return NextResponse.json({ error: "File too large (max 10MB)" }, { status: 400 });
+  }
 
   const userId = user.id;
 

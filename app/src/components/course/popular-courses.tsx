@@ -7,6 +7,7 @@ import Link from "next/link";
 
 interface PopularCourse {
   id: string;
+  slug: string;
   name: string;
   distanceKm: number;
   elevationM: number;
@@ -15,12 +16,12 @@ interface PopularCourse {
   score: number;
 }
 
-export function PopularCourses({ compact = false, limit = 6 }: { compact?: boolean; limit?: number }) {
+export function PopularCourses({ compact = false, limit = 6, country }: { compact?: boolean; limit?: number; country?: string }) {
   const [courses, setCourses] = useState<PopularCourse[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`/api/courses/popular?limit=${limit}`)
+    fetch(`/api/courses/popular?limit=${limit}${country ? `&country=${country}` : ""}`)
       .then((r) => r.json())
       .then(setCourses)
       .catch(() => {})
@@ -54,7 +55,7 @@ export function PopularCourses({ compact = false, limit = 6 }: { compact?: boole
         {courses.map((course, i) => (
           <Link
             key={course.id}
-            href={`/courses/${course.id}`}
+            href={`/courses/${course.slug}`}
             className="flex items-center gap-2 px-2.5 py-1.5 hover:bg-t-hover transition-colors"
           >
             <span className="text-xs font-bold text-t-muted/40 w-4 text-center shrink-0">
@@ -76,7 +77,7 @@ export function PopularCourses({ compact = false, limit = 6 }: { compact?: boole
   return (
     <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-thin">
       {courses.map((course) => (
-        <Link key={course.id} href={`/courses/${course.id}`} className="shrink-0">
+        <Link key={course.id} href={`/courses/${course.slug}`} className="shrink-0">
           <Card className="w-64 hover:border-t-accent transition-colors">
             <CardContent className="py-3">
               <h3 className="text-sm font-medium truncate">{course.name}</h3>

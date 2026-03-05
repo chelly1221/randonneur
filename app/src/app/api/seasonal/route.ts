@@ -40,6 +40,7 @@ export async function GET(request: NextRequest) {
       course: {
         select: {
           id: true,
+          slug: true,
           name: true,
           distanceKm: true,
           elevationM: true,
@@ -61,6 +62,7 @@ export async function GET(request: NextRequest) {
       sortOrder: p.sortOrder,
       course: {
         id: p.course.id,
+        slug: p.course.slug,
         name: p.course.name,
         distanceKm: p.course.distanceKm,
         elevationM: p.course.elevationM,

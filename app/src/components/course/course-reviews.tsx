@@ -10,6 +10,7 @@ import { ReportButton } from "./report-button";
 import { UserAvatar } from "@/components/user/user-avatar";
 import { Pencil, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ReviewPhotosDisplay } from "./review-photos-display";
 
 interface ReviewUser {
@@ -101,10 +102,12 @@ function StarDisplay({ value }: { value: string | null }) {
 
 interface CourseReviewsProps {
   courseId: string;
+  courseSlug?: string;
   onWriteClick?: () => void;
 }
 
-export function CourseReviews({ courseId, onWriteClick }: CourseReviewsProps) {
+export function CourseReviews({ courseId, courseSlug, onWriteClick }: CourseReviewsProps) {
+  const router = useRouter();
   const { data: session } = useSession();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
@@ -197,7 +200,13 @@ export function CourseReviews({ courseId, onWriteClick }: CourseReviewsProps) {
         {session && (
           <button
             type="button"
-            onClick={onWriteClick}
+            onClick={() => {
+              if (courseSlug) {
+                router.push(`/courses/${courseSlug}/review`);
+              } else if (onWriteClick) {
+                onWriteClick();
+              }
+            }}
             className="text-[10px] text-sky-blue hover:underline"
           >
             후기 작성

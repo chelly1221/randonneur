@@ -8,6 +8,7 @@ import { Leaf, Sun, CloudRain, Snowflake } from "lucide-react";
 
 interface SeasonalCourse {
   id: string;
+  slug: string;
   name: string;
   distanceKm: number;
   elevationM: number;
@@ -49,7 +50,10 @@ export function SeasonalPicks() {
 
   useEffect(() => {
     fetch("/api/seasonal")
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error("fetch failed");
+        return r.json();
+      })
       .then(setData)
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -92,7 +96,7 @@ export function SeasonalPicks() {
         {data.picks.map((pick) => (
           <Link
             key={pick.id}
-            href={`/courses/${pick.course.id}`}
+            href={`/courses/${pick.course.slug}`}
             className="shrink-0"
           >
             <Card className="w-72 hover:border-t-accent transition-colors">

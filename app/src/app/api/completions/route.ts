@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { uploadGpx } from "@/lib/minio";
 import { checkAndAwardBadges } from "@/lib/badges";
 import { createNotifications } from "@/lib/notifications";
+import { randomUUID } from "crypto";
 
 export async function POST(request: NextRequest) {
   const session = await auth();
@@ -17,6 +18,9 @@ export async function POST(request: NextRequest) {
   });
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+  if (user.status === "banned") {
+    return NextResponse.json({ error: "Account restricted" }, { status: 403 });
   }
 
   const formData = await request.formData();
@@ -43,8 +47,11 @@ export async function POST(request: NextRequest) {
 
   let gpxFileKey = null;
   if (gpxFile && gpxFile.size > 0) {
+    if (gpxFile.size > 50 * 1024 * 1024) {
+      return NextResponse.json({ error: "GPX file too large (max 50MB)" }, { status: 400 });
+    }
     const buffer = Buffer.from(await gpxFile.arrayBuffer());
-    gpxFileKey = `completions/${user.id}/${Date.now()}.gpx`;
+    gpxFileKey = `completions/${user.id}/${randomUUID()}.gpx`;
     await uploadGpx(gpxFileKey, buffer);
   }
 
@@ -75,7 +82,7 @@ export async function POST(request: NextRequest) {
         "completion",
         "코스 완주",
         `${user.displayName}님이 ${course.name}을(를) 완주했습니다`,
-        `/courses/${courseId}`
+        `/courses/${course.slug}`
       ).catch(() => {});
     }
   }).catch(() => {});

@@ -1,3 +1,5 @@
+import { generateUniqueCourseSlug } from "./slug";
+
 /**
  * Audax Ireland Permanent Course Scraper
  *
@@ -726,6 +728,16 @@ export async function runAudaxIrelandScraper(): Promise<ScrapeResult> {
             }
           }
 
+          // Regenerate slug if name or distance changed
+          if (updates.name !== undefined || updates.distanceKm !== undefined) {
+            updates.slug = await generateUniqueCourseSlug(
+              (updates.name as string) ?? existing.name,
+              (updates.distanceKm as number) ?? existing.distanceKm,
+              existing.courseNumber ?? "",
+              existing.id
+            );
+          }
+
           if (Object.keys(updates).length > 0) {
             await prisma.course.update({
               where: { id: existing.id },
@@ -778,8 +790,10 @@ export async function runAudaxIrelandScraper(): Promise<ScrapeResult> {
           continue;
         }
 
+        const courseSlug = await generateUniqueCourseSlug(route.name, distanceKm || 0, courseNumber);
         const newCourse = await prisma.course.create({
           data: {
+            slug: courseSlug,
             courseNumber,
             name: route.name,
             distanceKm: distanceKm || 0,

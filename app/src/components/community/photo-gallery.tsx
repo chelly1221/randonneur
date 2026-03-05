@@ -11,7 +11,7 @@ interface GalleryPhoto {
   imageUrl: string;
   type: "review" | "checkpoint";
   user: { id: string; displayName: string; avatarKey: string | null } | null;
-  course: { id: string; name: string; region: string | null } | null;
+  course: { id: string; slug: string; name: string; region: string | null } | null;
   caption: string | null;
   createdAt: string;
 }

@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 
 interface ShareButtonProps {
-  courseId: string;
+  courseSlug: string;
   courseName: string;
   courseDistance: number;
   className?: string;
@@ -12,7 +12,7 @@ interface ShareButtonProps {
 const BASE_URL = "https://audax.3chan.kr";
 
 export function ShareButton({
-  courseId,
+  courseSlug,
   courseName,
   courseDistance,
   className,
@@ -21,7 +21,7 @@ export function ShareButton({
   const [copied, setCopied] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  const courseUrl = `${BASE_URL}/courses/${courseId}`;
+  const courseUrl = `${BASE_URL}/courses/${courseSlug}`;
   const shareText = `${courseName} - ${courseDistance}km 랜도너링 코스`;
 
   useEffect(() => {
@@ -94,11 +94,11 @@ export function ShareButton({
           e.stopPropagation();
           setOpen((prev) => !prev);
         }}
-        className="inline-flex items-center gap-1 text-sm text-t-muted hover:text-sky-blue transition-colors"
+        className="inline-flex items-center gap-1 h-7 px-2 rounded-md border border-t-border text-[11px] text-t-text hover:bg-t-hover transition-colors"
         title="공유하기"
       >
         <svg
-          className="h-4 w-4"
+          className="h-3.5 w-3.5"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"

@@ -1,3 +1,5 @@
+import { generateUniqueCourseSlug } from "./slug";
+
 /**
  * Audax Japan (AJ) Permanent Course Scraper
  *
@@ -599,6 +601,16 @@ export async function runAudaxJapanScraper(): Promise<ScrapeResult> {
             }
           }
 
+          // Regenerate slug if name or distance changed
+          if (updates.name !== undefined || updates.distanceKm !== undefined) {
+            updates.slug = await generateUniqueCourseSlug(
+              (updates.name as string) ?? existing.name,
+              (updates.distanceKm as number) ?? existing.distanceKm,
+              existing.courseNumber ?? "",
+              existing.id
+            );
+          }
+
           if (Object.keys(updates).length > 0) {
             await prisma.course.update({
               where: { id: existing.id },
@@ -705,8 +717,10 @@ export async function runAudaxJapanScraper(): Promise<ScrapeResult> {
           continue;
         }
 
+        const courseSlug = await generateUniqueCourseSlug(displayName, distanceKm || 0, courseNumber);
         const newCourse = await prisma.course.create({
           data: {
+            slug: courseSlug,
             courseNumber,
             name: displayName,
             distanceKm: distanceKm || 0,

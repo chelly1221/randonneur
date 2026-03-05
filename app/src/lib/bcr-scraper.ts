@@ -1,3 +1,5 @@
+import { generateUniqueCourseSlug } from "./slug";
+
 /**
  * BC Randonneurs Permanent Course Scraper
  *
@@ -37,7 +39,7 @@ interface ParsedRoute {
   region: string;
   permanentNumber: string;
   controls: string;
-  gpxUrl: string;
+  gpxUrl: string | null;
   detailUrl: string;
 }
 
@@ -149,12 +151,11 @@ function parseRoutesTable(html: string): ParsedRoute[] {
     const routeId = trMatch[1];
     const trContent = trMatch[2];
 
-    // Extract GPX URL — only process routes with GPX files
+    // Extract GPX URL from listing (may be null — detail page checked later)
     const gpxMatch = trContent.match(
       /href="(https?:\/\/f000\.backblazeb2\.com\/[^"]+\.gpx)"/i
     );
-    if (!gpxMatch) continue;
-    const gpxUrl = gpxMatch[1];
+    const gpxUrl = gpxMatch ? gpxMatch[1] : null;
 
     // Extract all <td> cells
     const tdRegex = /<td[^>]*>([\s\S]*?)<\/td>/gi;
@@ -210,6 +211,17 @@ function parseRoutesTable(html: string): ParsedRoute[] {
 }
 
 /**
+ * Extract GPX URL from a route detail page.
+ * Detail pages have Backblaze B2 GPX links not present in the listing table.
+ */
+function extractGpxUrlFromDetail(html: string): string | null {
+  const match = html.match(
+    /href="(https?:\/\/f000\.backblazeb2\.com\/[^"]+\.gpx)"/i
+  );
+  return match ? match[1] : null;
+}
+
+/**
  * Run the BC Randonneurs permanent course scraper.
  */
 export async function runBcrScraper(): Promise<ScrapeResult> {
@@ -226,14 +238,14 @@ export async function runBcrScraper(): Promise<ScrapeResult> {
     console.log("[bcr] Fetching routes listing page...");
     const listingHtml = await httpGetText(LISTING_URL);
 
-    // Step 2: Parse table rows (only those with GPX)
+    // Step 2: Parse table rows (all routes, including those without listing GPX)
     const routes = parseRoutesTable(listingHtml);
     result.total = routes.length;
-    console.log(`[bcr] Found ${routes.length} routes with GPX files`);
+    console.log(`[bcr] Found ${routes.length} routes`);
 
     if (routes.length === 0) {
       result.errors.push(
-        "No routes with GPX found — HTML structure may have changed"
+        "No routes found — HTML structure may have changed"
       );
       return result;
     }
@@ -264,9 +276,17 @@ export async function runBcrScraper(): Promise<ScrapeResult> {
           // Re-download GPX if we don't have one
           if (!existing.gpxFileKey) {
             try {
+              // Resolve GPX URL — from listing or detail page
+              let gpxUrl = route.gpxUrl;
+              if (!gpxUrl) {
+                await sleep(500);
+                const detailHtml = await httpGetText(route.detailUrl);
+                gpxUrl = extractGpxUrlFromDetail(detailHtml);
+              }
+              if (!gpxUrl) throw new Error("No GPX URL found");
               await sleep(500);
               const gpxData = await downloadAndProcessGpx(
-                route.gpxUrl,
+                gpxUrl,
                 route.routeId,
                 route.name
               );
@@ -299,6 +319,16 @@ export async function runBcrScraper(): Promise<ScrapeResult> {
             }
           }
 
+          // Regenerate slug if name or distance changed
+          if (updates.name !== undefined || updates.distanceKm !== undefined) {
+            updates.slug = await generateUniqueCourseSlug(
+              (updates.name as string) ?? existing.name,
+              (updates.distanceKm as number) ?? existing.distanceKm,
+              existing.courseNumber ?? "",
+              existing.id
+            );
+          }
+
           if (Object.keys(updates).length > 0) {
             await prisma.course.update({
               where: { id: existing.id },
@@ -324,9 +354,22 @@ export async function runBcrScraper(): Promise<ScrapeResult> {
           null;
         let geojsonGeometry: object | null = null;
 
+        // Resolve GPX URL — from listing or detail page
+        let gpxUrl = route.gpxUrl;
+        if (!gpxUrl) {
+          try {
+            await sleep(500);
+            const detailHtml = await httpGetText(route.detailUrl);
+            gpxUrl = extractGpxUrlFromDetail(detailHtml);
+          } catch {
+            // Non-critical — will continue without GPX
+          }
+        }
+
         try {
+          if (!gpxUrl) throw new Error("No GPX URL");
           const gpxData = await downloadAndProcessGpx(
-            route.gpxUrl,
+            gpxUrl,
             route.routeId,
             route.name
           );
@@ -358,9 +401,17 @@ export async function runBcrScraper(): Promise<ScrapeResult> {
             ? controlList[controlList.length - 1]
             : startLocation;
 
+        // Skip courses without GPX - can't display on map
+        if (!gpxFileKey) {
+          result.skipped++;
+          continue;
+        }
+
         // Create course
+        const courseSlug = await generateUniqueCourseSlug(route.name, distanceKm, `BCR-${route.permanentNumber}`);
         const newCourse = await prisma.course.create({
           data: {
+            slug: courseSlug,
             courseNumber: `BCR-${route.permanentNumber}`,
             name: route.name,
             distanceKm,
@@ -492,7 +543,7 @@ async function downloadAndProcessGpx(
     gpxFileKey = `courses/bcr-${routeId}.gpx`;
     await minioLib.uploadGpx(gpxFileKey, gpxBuffer);
   } catch {
-    // Non-critical
+    gpxFileKey = null; // Reset — file not actually in MinIO
   }
 
   return { gpxFileKey, elevationM, distanceKm, elevationProfile, geojsonGeometry };

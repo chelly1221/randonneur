@@ -6,6 +6,7 @@ export const dynamic = "force-dynamic";
 
 interface WorldCourseRow {
   id: string;
+  slug: string;
   name: string;
   course_number: string | null;
   distance_km: number;
@@ -24,7 +25,7 @@ interface WorldCourseRow {
 export default async function WorldCoursesPage() {
   const rows: WorldCourseRow[] = await prisma.$queryRawUnsafe(`
     SELECT
-      id, name, course_number, distance_km, elevation_m, region, category,
+      id, slug, name, course_number, distance_km, elevation_m, region, category,
       start_location, end_location, gpx_file_key, tags, country,
       official_page_url,
       ST_AsGeoJSON(ST_Simplify(geom, 0.001)) as geojson
@@ -35,6 +36,7 @@ export default async function WorldCoursesPage() {
 
   const courses = rows.map((r) => ({
     id: r.id,
+    slug: r.slug,
     name: r.name,
     courseNumber: r.course_number,
     distanceKm: r.distance_km,
@@ -60,6 +62,7 @@ export default async function WorldCoursesPage() {
           type: "Feature" as const,
           properties: {
             id: r.id,
+            slug: r.slug,
             name: r.name,
             region: r.region,
             distanceKm: r.distance_km,

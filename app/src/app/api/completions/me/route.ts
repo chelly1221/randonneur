@@ -17,10 +17,12 @@ export async function GET() {
 
   const completions = await prisma.completion.findMany({
     where: { userId: user.id },
+    take: 500,
     include: {
       course: {
         select: {
           id: true,
+          slug: true,
           name: true,
           distanceKm: true,
           elevationM: true,

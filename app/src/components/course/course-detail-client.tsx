@@ -83,11 +83,12 @@ export function CourseDetailClient({
           userLocation={userLocation}
           closestPoint={closestPt}
           className="h-full"
-        />
-        <GeolocationTracker
-          onLocationUpdate={handleLocationUpdate}
-          distanceAlongKm={currentDistanceKm}
-        />
+        >
+          <GeolocationTracker
+            onLocationUpdate={handleLocationUpdate}
+            distanceAlongKm={currentDistanceKm}
+          />
+        </CourseMap>
       </div>
 
       {/* Elevation profile */}

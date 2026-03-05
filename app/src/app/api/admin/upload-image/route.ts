@@ -19,6 +19,22 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Validate key to prevent path traversal
+  if (key.includes("..") || key.startsWith("/") || !/^[a-zA-Z0-9/_\-.]+$/.test(key)) {
+    return NextResponse.json(
+      { error: "Invalid key" },
+      { status: 400 }
+    );
+  }
+
+  // File size limit: 10MB
+  if (file.size > 10 * 1024 * 1024) {
+    return NextResponse.json(
+      { error: "File too large (max 10MB)" },
+      { status: 400 }
+    );
+  }
+
   const buffer = Buffer.from(await file.arrayBuffer());
   await ensureBucket();
   await uploadGpx(key, buffer, file.type || "image/jpeg");

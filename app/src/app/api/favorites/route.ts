@@ -23,20 +23,35 @@ export async function POST(request: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
+  if (user.status === "banned") {
+    return NextResponse.json({ error: "Account restricted" }, { status: 403 });
+  }
 
-  // Toggle: if exists, delete; if not, create
+  // Toggle: if exists, delete; if not, create (race-safe)
   const existing = await prisma.favorite.findUnique({
     where: { userId_courseId: { userId: user.id, courseId } },
   });
 
   if (existing) {
-    await prisma.favorite.delete({ where: { id: existing.id } });
+    try {
+      await prisma.favorite.delete({ where: { id: existing.id } });
+    } catch {
+      // Already deleted by concurrent request
+    }
     return NextResponse.json({ favorited: false });
   }
 
-  await prisma.favorite.create({
-    data: { userId: user.id, courseId },
-  });
+  try {
+    await prisma.favorite.create({
+      data: { userId: user.id, courseId },
+    });
+  } catch (e: unknown) {
+    if (e && typeof e === "object" && "code" in e && e.code === "P2002") {
+      // Already created by concurrent request — treat as success
+      return NextResponse.json({ favorited: true });
+    }
+    throw e;
+  }
 
   return NextResponse.json({ favorited: true });
 }

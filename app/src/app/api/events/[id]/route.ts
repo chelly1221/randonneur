@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { sanitizeHtml } from "@/lib/sanitize";
 
 export async function GET(
   _request: NextRequest,
@@ -15,7 +16,7 @@ export async function GET(
         select: { id: true, displayName: true, avatarKey: true },
       },
       course: {
-        select: { id: true, name: true, distanceKm: true, region: true },
+        select: { id: true, slug: true, name: true, distanceKm: true, region: true },
       },
       participants: {
         where: { status: { not: "cancelled" } },
@@ -78,7 +79,7 @@ export async function PUT(
 
   const data: Record<string, unknown> = {};
   if (title !== undefined) data.title = title.trim();
-  if (description !== undefined) data.description = description?.trim() || null;
+  if (description !== undefined) data.description = description ? sanitizeHtml(description.trim()) : null;
   if (eventType !== undefined) {
     if (!validTypes.includes(eventType)) {
       return NextResponse.json({ error: "Invalid eventType" }, { status: 400 });
@@ -106,7 +107,8 @@ export async function PUT(
     }
   }
   if (maxParticipants !== undefined) {
-    data.maxParticipants = maxParticipants ? parseInt(String(maxParticipants)) : null;
+    const parsed = parseInt(String(maxParticipants));
+    data.maxParticipants = maxParticipants ? (isNaN(parsed) || parsed < 1 ? null : parsed) : null;
   }
 
   const updated = await prisma.event.update({

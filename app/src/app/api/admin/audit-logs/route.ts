@@ -14,8 +14,8 @@ export async function GET(request: NextRequest) {
   const userId = searchParams.get("userId");
   const from = searchParams.get("from");
   const to = searchParams.get("to");
-  const page = parseInt(searchParams.get("page") ?? "1");
-  const limit = parseInt(searchParams.get("limit") ?? "30");
+  const page = Math.max(1, parseInt(searchParams.get("page") ?? "1") || 1);
+  const limit = Math.min(Math.max(1, parseInt(searchParams.get("limit") ?? "30") || 30), 100);
 
   const where: Prisma.AuditLogWhereInput = {};
 

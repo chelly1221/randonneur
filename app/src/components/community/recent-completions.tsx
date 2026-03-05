@@ -9,6 +9,7 @@ interface CompletionEntry {
   user: { id: string; displayName: string; avatarKey: string | null };
   course: {
     id: string;
+    slug: string;
     name: string;
     distanceKm: number;
     elevationM: number;
@@ -22,8 +23,11 @@ export function RecentCompletions() {
 
   useEffect(() => {
     fetch("/api/community/recent-completions?limit=8")
-      .then((r) => r.json())
-      .then(setCompletions)
+      .then((r) => {
+        if (!r.ok) throw new Error("fetch failed");
+        return r.json();
+      })
+      .then((data) => { if (Array.isArray(data)) setCompletions(data); })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
@@ -54,7 +58,7 @@ export function RecentCompletions() {
             {c.user.displayName}
           </Link>
           <span className="text-t-faint shrink-0">&rarr;</span>
-          <Link href={`/courses/${c.course.id}`} className="text-sky-blue hover:underline truncate min-w-0">
+          <Link href={`/courses/${c.course.slug}`} className="text-sky-blue hover:underline truncate min-w-0">
             {c.course.name}
           </Link>
           <span className="text-[9px] text-t-faint shrink-0">{c.course.distanceKm}km</span>

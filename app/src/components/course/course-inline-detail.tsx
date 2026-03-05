@@ -34,6 +34,7 @@ interface CheckpointData {
 
 interface CourseBasic {
   id: string;
+  slug: string;
   name: string;
   distanceKm: number;
   elevationM: number;
@@ -109,6 +110,7 @@ export function CourseInlineDetail({
   const [detail, setDetail] = useState<{
     course: {
       id: string;
+      slug: string;
       name: string;
       courseNumber: string | null;
       distanceKm: number;
@@ -191,7 +193,7 @@ export function CourseInlineDetail({
 
     fetch(`/api/courses/${courseId}/detail`, { signal: controller.signal })
       .then((res) => {
-        if (!res.ok) throw new Error("Failed to load");
+        if (!res.ok) throw new Error("불러오기 실패");
         return res.json();
       })
       .then((data) => {
@@ -379,13 +381,18 @@ export function CourseInlineDetail({
           </div>
 
           <div className="shrink-0 flex items-stretch gap-1">
-            <div className="self-stretch inline-flex items-center" onClick={(e) => e.stopPropagation()}>
-              <ShareButton
-                courseId={courseId}
-                courseName={course?.name ?? courseBasic.name}
-                courseDistance={course?.distanceKm ?? courseBasic.distanceKm}
-              />
-            </div>
+            {course?.gpxFileKey && (
+              <a
+                href={`/api/courses/${course.id}/gpx`}
+                onClick={(e) => e.stopPropagation()}
+                className="hidden lg:inline-flex items-center"
+              >
+                <Button variant="outline" size="sm" className="h-7 px-2 text-[11px]">
+                  <Download className="mr-1 h-3.5 w-3.5" />
+                  GPX
+                </Button>
+              </a>
+            )}
             {onToggleMap && (
               <button
                 type="button"
@@ -399,18 +406,13 @@ export function CourseInlineDetail({
                 )}
               </button>
             )}
-            {course?.gpxFileKey && (
-              <a
-                href={`/api/courses/${course.id}/gpx`}
-                onClick={(e) => e.stopPropagation()}
-                className="hidden lg:inline-flex items-center"
-              >
-                <Button variant="outline" size="sm" className="h-7 px-2 text-[11px]">
-                  <Download className="mr-1 h-3.5 w-3.5" />
-                  GPX
-                </Button>
-              </a>
-            )}
+            <div className="inline-flex items-center" onClick={(e) => e.stopPropagation()}>
+              <ShareButton
+                courseSlug={course?.slug ?? courseBasic.slug}
+                courseName={course?.name ?? courseBasic.name}
+                courseDistance={course?.distanceKm ?? courseBasic.distanceKm}
+              />
+            </div>
             {officialPageUrl && course && !course.archived && (
               <a
                 href={officialPageUrl}
@@ -420,8 +422,7 @@ export function CourseInlineDetail({
                 className="hidden lg:inline-flex items-center"
               >
                 <Button variant="outline" size="sm" className="h-7 px-2 text-[11px]">
-                  <ExternalLink className="mr-1 h-3.5 w-3.5" />
-                  공식
+                  <ExternalLink className="h-3.5 w-3.5" />
                 </Button>
               </a>
             )}
@@ -491,13 +492,13 @@ export function CourseInlineDetail({
                   <div className="text-[10px] text-t-muted">거리</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-base font-semibold text-t-text">{course.elevationM.toLocaleString()}m</div>
+                  <div className="text-base font-semibold text-t-text">{(course.elevationM ?? 0).toLocaleString()}m</div>
                   <div className="text-[10px] text-t-muted">획득고도</div>
                 </div>
                 {course.estimatedTime && (
                   <div className="text-center">
                     <div className="text-base font-semibold text-t-text">
-                      {course.estimatedTime.replace("시간", "h")}
+                      {course.estimatedTime}
                     </div>
                     <div className="text-[10px] text-t-muted">제한시간</div>
                   </div>
@@ -658,7 +659,7 @@ export function CourseInlineDetail({
                                   </a>
                                 </div>
                                 <iframe
-                                  title={`${normalizeCheckpointName(cp.name)} around view`}
+                                  title={`${normalizeCheckpointName(cp.name)} 주변 보기`}
                                   src={checkpointViewMode === "street" ? streetSrc : mapSrc}
                                   className="h-48 w-full"
                                   loading="lazy"
@@ -906,7 +907,7 @@ export function CourseInlineDetail({
 
             {/* Tab: 후기 */}
             {activeTab === "reviews" && (
-              <CourseReviews courseId={courseId} onWriteClick={openAddRecord} />
+              <CourseReviews courseId={courseId} courseSlug={course?.slug ?? courseBasic.slug} onWriteClick={openAddRecord} />
             )}
 
             {/* Tab: 수정요청 */}

@@ -18,6 +18,7 @@ interface CompletionData {
     notes: string | null;
     course: {
       id: string;
+      slug: string;
       name: string;
       distanceKm: number;
       elevationM: number;
@@ -208,7 +209,7 @@ export default function ProfilePage() {
                 <CardContent className="flex items-center justify-between">
                   <div>
                     <Link
-                      href={`/courses/${completion.course.id}`}
+                      href={`/courses/${completion.course.slug}`}
                       className="font-medium hover:text-t-link"
                     >
                       {completion.course.name}

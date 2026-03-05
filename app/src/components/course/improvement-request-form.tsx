@@ -1,14 +1,16 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { Badge } from "@/components/ui/badge";
-import { MessageSquarePlus } from "lucide-react";
+import { MessageSquarePlus, ImagePlus, X, Loader2 } from "lucide-react";
 
 interface ImprovementRequest {
   id: string;
   category: string | null;
   content: string;
+  images: string[];
+  imageUrls: string[];
   status: string;
   adminNote: string | null;
   createdAt: string;
@@ -18,6 +20,14 @@ interface ImprovementRequest {
 interface ImprovementRequestFormProps {
   courseId: string;
 }
+
+interface PreviewFile {
+  file: File;
+  previewUrl: string;
+}
+
+const MAX_IMAGES = 3;
+const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 const CATEGORIES = [
   { value: "gpx",        label: "GPX 최신화" },
@@ -60,6 +70,114 @@ function CategoryPicker({
   );
 }
 
+function ImageUploadArea({
+  existingImages,
+  existingUrls,
+  newPreviews,
+  onAddFiles,
+  onRemoveNew,
+  onRemoveExisting,
+  disabled,
+}: {
+  existingImages: string[];
+  existingUrls: string[];
+  newPreviews: PreviewFile[];
+  onAddFiles: (files: FileList | File[]) => void;
+  onRemoveNew: (index: number) => void;
+  onRemoveExisting: (key: string) => void;
+  disabled: boolean;
+}) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const totalCount = existingImages.length + newPreviews.length;
+  const canAdd = totalCount < MAX_IMAGES && !disabled;
+
+  return (
+    <div className="space-y-1.5">
+      {/* Existing + new image previews */}
+      {(existingImages.length > 0 || newPreviews.length > 0) && (
+        <div className="flex flex-wrap gap-1.5">
+          {existingImages.map((key, i) => (
+            <div key={key} className="relative group">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={existingUrls[i] || ""}
+                alt={`첨부 ${i + 1}`}
+                className="h-14 w-14 rounded object-cover border border-t-border"
+              />
+              {!disabled && (
+                <button
+                  type="button"
+                  onClick={() => onRemoveExisting(key)}
+                  className="absolute -top-1 -right-1 rounded-full bg-sky-red p-0.5 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                  aria-label="삭제"
+                >
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              )}
+            </div>
+          ))}
+          {newPreviews.map((preview, i) => (
+            <div key={i} className="relative group">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={preview.previewUrl}
+                alt={`새 이미지 ${i + 1}`}
+                className="h-14 w-14 rounded object-cover border border-t-border"
+              />
+              {!disabled && (
+                <button
+                  type="button"
+                  onClick={() => onRemoveNew(i)}
+                  className="absolute -top-1 -right-1 rounded-full bg-sky-red p-0.5 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                  aria-label="삭제"
+                >
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Add image button / drop zone */}
+      {canAdd && (
+        <div
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={(e) => { e.preventDefault(); setDragOver(false); }}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragOver(false);
+            if (e.dataTransfer.files.length > 0) onAddFiles(e.dataTransfer.files);
+          }}
+          onClick={() => fileInputRef.current?.click()}
+          className={`flex items-center gap-1.5 rounded border border-dashed px-2 py-1.5 cursor-pointer transition-colors ${
+            dragOver
+              ? "border-sky-blue bg-sky-blue/10"
+              : "border-t-border hover:border-t-muted"
+          }`}
+        >
+          <ImagePlus className="h-3.5 w-3.5 text-t-muted" />
+          <span className="text-[10px] text-t-muted">
+            사진 첨부 (최대 {MAX_IMAGES}장, JPG/PNG/WebP, 10MB)
+          </span>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files && e.target.files.length > 0) onAddFiles(e.target.files);
+              e.target.value = "";
+            }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ImprovementRequestForm({ courseId }: ImprovementRequestFormProps) {
   const { data: session } = useSession();
   const [request, setRequest] = useState<ImprovementRequest | null | undefined>(undefined);
@@ -71,6 +189,10 @@ export function ImprovementRequestForm({ courseId }: ImprovementRequestFormProps
   const [editing, setEditing] = useState(false);
   const [editCategory, setEditCategory] = useState<CategoryValue | null>(null);
   const [editContent, setEditContent] = useState("");
+  const [newFiles, setNewFiles] = useState<PreviewFile[]>([]);
+  const [editFiles, setEditFiles] = useState<PreviewFile[]>([]);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const [deletingImage, setDeletingImage] = useState(false);
 
   const fetchRequest = useCallback(() => {
     if (!session) {
@@ -93,6 +215,74 @@ export function ImprovementRequestForm({ courseId }: ImprovementRequestFormProps
     fetchRequest();
   }, [fetchRequest]);
 
+  function addFiles(
+    files: FileList | File[],
+    target: "new" | "edit"
+  ) {
+    setImageError(null);
+    const arr = Array.from(files);
+
+    const invalid = arr.find((f) => !ALLOWED_TYPES.includes(f.type));
+    if (invalid) {
+      setImageError("JPG, PNG, WebP 형식만 업로드할 수 있습니다.");
+      return;
+    }
+    const tooBig = arr.find((f) => f.size > 10 * 1024 * 1024);
+    if (tooBig) {
+      setImageError("파일 크기는 10MB 이하여야 합니다.");
+      return;
+    }
+
+    const setter = target === "new" ? setNewFiles : setEditFiles;
+    const existingCount = request?.images?.length ?? 0;
+
+    setter((prev) => {
+      const currentNew = prev.length;
+      const total = (target === "edit" ? existingCount : 0) + currentNew + arr.length;
+      if (total > MAX_IMAGES) {
+        setImageError(`최대 ${MAX_IMAGES}장까지 업로드할 수 있습니다.`);
+        return prev;
+      }
+      return [...prev, ...arr.map((f) => ({ file: f, previewUrl: URL.createObjectURL(f) }))];
+    });
+  }
+
+  function removeNewFile(index: number, target: "new" | "edit") {
+    const setter = target === "new" ? setNewFiles : setEditFiles;
+    setter((prev) => {
+      URL.revokeObjectURL(prev[index].previewUrl);
+      return prev.filter((_, i) => i !== index);
+    });
+    setImageError(null);
+  }
+
+  async function uploadImages(files: PreviewFile[]) {
+    if (files.length === 0) return;
+    const formData = new FormData();
+    for (const f of files) {
+      formData.append("images", f.file);
+    }
+    await fetch(`/api/courses/${courseId}/improvement-request/images`, {
+      method: "POST",
+      body: formData,
+    });
+    for (const f of files) URL.revokeObjectURL(f.previewUrl);
+  }
+
+  async function deleteExistingImage(imageKey: string) {
+    setDeletingImage(true);
+    try {
+      const res = await fetch(`/api/courses/${courseId}/improvement-request/images`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageKey }),
+      });
+      if (res.ok) fetchRequest();
+    } finally {
+      setDeletingImage(false);
+    }
+  }
+
   if (!session) return null;
 
   async function handleSubmit() {
@@ -105,6 +295,8 @@ export function ImprovementRequestForm({ courseId }: ImprovementRequestFormProps
         body: JSON.stringify({ category, content: content.trim() }),
       });
       if (res.ok) {
+        if (newFiles.length > 0) await uploadImages(newFiles);
+        setNewFiles([]);
         setContent("");
         setCategory(null);
         setOpen(false);
@@ -126,6 +318,8 @@ export function ImprovementRequestForm({ courseId }: ImprovementRequestFormProps
         body: JSON.stringify({ category: editCategory, content: editContent.trim() }),
       });
       if (res.ok) {
+        if (editFiles.length > 0) await uploadImages(editFiles);
+        setEditFiles([]);
         setEditing(false);
         setLoading(true);
         fetchRequest();
@@ -169,6 +363,16 @@ export function ImprovementRequestForm({ courseId }: ImprovementRequestFormProps
               rows={3}
               className="w-full rounded border border-t-border bg-t-surface px-2 py-1.5 text-[11px] text-t-text placeholder:text-t-muted resize-none"
             />
+            <ImageUploadArea
+              existingImages={[]}
+              existingUrls={[]}
+              newPreviews={newFiles}
+              onAddFiles={(f) => addFiles(f, "new")}
+              onRemoveNew={(i) => removeNewFile(i, "new")}
+              onRemoveExisting={() => {}}
+              disabled={submitting}
+            />
+            {imageError && <p className="text-[10px] text-sky-red">{imageError}</p>}
             <div className="flex gap-1.5">
               <button
                 type="button"
@@ -180,7 +384,7 @@ export function ImprovementRequestForm({ courseId }: ImprovementRequestFormProps
               </button>
               <button
                 type="button"
-                onClick={() => { setOpen(false); setContent(""); setCategory(null); }}
+                onClick={() => { setOpen(false); setContent(""); setCategory(null); setNewFiles([]); setImageError(null); }}
                 className="rounded border border-t-border px-3 py-1 text-[11px] text-t-muted hover:bg-t-hover"
               >
                 취소
@@ -191,6 +395,9 @@ export function ImprovementRequestForm({ courseId }: ImprovementRequestFormProps
       </div>
     );
   }
+
+  const existingImages = request.images ?? [];
+  const existingUrls = request.imageUrls ?? [];
 
   // Pending request
   if (request.status === "pending") {
@@ -220,6 +427,16 @@ export function ImprovementRequestForm({ courseId }: ImprovementRequestFormProps
               rows={3}
               className="w-full rounded border border-t-border bg-t-surface px-2 py-1.5 text-[11px] text-t-text resize-none"
             />
+            <ImageUploadArea
+              existingImages={existingImages}
+              existingUrls={existingUrls}
+              newPreviews={editFiles}
+              onAddFiles={(f) => addFiles(f, "edit")}
+              onRemoveNew={(i) => removeNewFile(i, "edit")}
+              onRemoveExisting={deleteExistingImage}
+              disabled={submitting || deletingImage}
+            />
+            {imageError && <p className="text-[10px] text-sky-red">{imageError}</p>}
             <div className="flex gap-1.5">
               <button
                 type="button"
@@ -227,11 +444,13 @@ export function ImprovementRequestForm({ courseId }: ImprovementRequestFormProps
                 disabled={submitting || !editContent.trim()}
                 className="rounded bg-sky-darkblue px-3 py-1 text-[11px] text-white hover:bg-sky-darkblue/80 disabled:opacity-50"
               >
-                {submitting ? "저장 중..." : "요청 수정"}
+                {submitting ? (
+                  <span className="flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" />저장 중...</span>
+                ) : "요청 수정"}
               </button>
               <button
                 type="button"
-                onClick={() => setEditing(false)}
+                onClick={() => { setEditing(false); setEditFiles([]); setImageError(null); }}
                 className="rounded border border-t-border px-3 py-1 text-[11px] text-t-muted hover:bg-t-hover"
               >
                 취소
@@ -243,12 +462,28 @@ export function ImprovementRequestForm({ courseId }: ImprovementRequestFormProps
             <p className="text-[11px] text-t-sub whitespace-pre-wrap break-words mb-1.5">
               {request.content}
             </p>
+            {existingImages.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-1.5">
+                {existingImages.map((key, i) => (
+                  <a key={key} href={existingUrls[i] || "#"} target="_blank" rel="noopener noreferrer">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={existingUrls[i] || ""}
+                      alt={`첨부 ${i + 1}`}
+                      className="h-14 w-14 rounded object-cover border border-t-border hover:opacity-80 transition-opacity"
+                    />
+                  </a>
+                ))}
+              </div>
+            )}
             <button
               type="button"
               onClick={() => {
                 setEditing(true);
                 setEditContent(request!.content);
                 setEditCategory((request!.category as CategoryValue) ?? null);
+                setEditFiles([]);
+                setImageError(null);
               }}
               className="text-[10px] text-sky-blue hover:underline"
             >
@@ -279,6 +514,20 @@ export function ImprovementRequestForm({ courseId }: ImprovementRequestFormProps
         <p className="text-[11px] text-t-sub whitespace-pre-wrap break-words mb-1">
           {request.content}
         </p>
+        {existingImages.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mb-1">
+            {existingImages.map((key, i) => (
+              <a key={key} href={existingUrls[i] || "#"} target="_blank" rel="noopener noreferrer">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={existingUrls[i] || ""}
+                  alt={`첨부 ${i + 1}`}
+                  className="h-14 w-14 rounded object-cover border border-t-border hover:opacity-80 transition-opacity"
+                />
+              </a>
+            ))}
+          </div>
+        )}
         {request.adminNote && (
           <div className="rounded border border-t-border bg-t-bg/60 px-2 py-1 mb-1.5">
             <p className="text-[10px] text-t-muted mb-0.5">관리자 메모</p>
@@ -300,6 +549,16 @@ export function ImprovementRequestForm({ courseId }: ImprovementRequestFormProps
               rows={3}
               className="w-full rounded border border-t-border bg-t-surface px-2 py-1.5 text-[11px] text-t-text placeholder:text-t-muted resize-none"
             />
+            <ImageUploadArea
+              existingImages={[]}
+              existingUrls={[]}
+              newPreviews={newFiles}
+              onAddFiles={(f) => addFiles(f, "new")}
+              onRemoveNew={(i) => removeNewFile(i, "new")}
+              onRemoveExisting={() => {}}
+              disabled={submitting}
+            />
+            {imageError && <p className="text-[10px] text-sky-red">{imageError}</p>}
             <div className="flex gap-1.5">
               <button
                 type="button"
@@ -311,7 +570,7 @@ export function ImprovementRequestForm({ courseId }: ImprovementRequestFormProps
               </button>
               <button
                 type="button"
-                onClick={() => { setOpen(false); setContent(""); setCategory(null); }}
+                onClick={() => { setOpen(false); setContent(""); setCategory(null); setNewFiles([]); setImageError(null); }}
                 className="rounded border border-t-border px-3 py-1 text-[11px] text-t-muted hover:bg-t-hover"
               >
                 취소
@@ -321,7 +580,7 @@ export function ImprovementRequestForm({ courseId }: ImprovementRequestFormProps
         ) : (
           <button
             type="button"
-            onClick={() => { setOpen(true); setContent(""); setCategory(null); }}
+            onClick={() => { setOpen(true); setContent(""); setCategory(null); setNewFiles([]); setImageError(null); }}
             className="text-[10px] text-sky-blue hover:underline"
           >
             새 요청 제출

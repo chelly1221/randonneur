@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import { generateCourseSlug } from "../src/lib/slug";
 
 const prisma = new PrismaClient();
 
@@ -133,7 +134,8 @@ async function main() {
       where: { name: course.name },
     });
     if (!existing) {
-      await prisma.course.create({ data: course });
+      const slug = generateCourseSlug(course.name, course.distanceKm);
+      await prisma.course.create({ data: { ...course, slug } });
       console.log(`Created course: ${course.name}`);
     } else {
       console.log(`Skipped (exists): ${course.name}`);

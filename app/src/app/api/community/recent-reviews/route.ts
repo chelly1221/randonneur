@@ -3,9 +3,16 @@ import { prisma } from "@/lib/db";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const limit = Math.min(parseInt(searchParams.get("limit") ?? "10"), 30);
+  const limit = Math.min(Math.max(1, parseInt(searchParams.get("limit") ?? "10") || 10), 30);
+  const country = searchParams.get("country");
+
+  const where: Record<string, unknown> = {};
+  if (country) {
+    where.course = { country };
+  }
 
   const reviews = await prisma.review.findMany({
+    where,
     orderBy: { createdAt: "desc" },
     take: limit,
     include: {
@@ -13,7 +20,7 @@ export async function GET(request: NextRequest) {
         select: { id: true, displayName: true, avatarKey: true },
       },
       course: {
-        select: { id: true, name: true, distanceKm: true, region: true },
+        select: { id: true, slug: true, name: true, distanceKm: true, region: true },
       },
       _count: { select: { comments: true, likes: true } },
     },

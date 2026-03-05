@@ -8,15 +8,15 @@ interface GalleryItem {
   imageUrl: string;
   type: "review" | "checkpoint";
   user: { id: string; displayName: string; avatarKey: string | null } | null;
-  course: { id: string; name: string; region: string | null } | null;
+  course: { id: string; slug: string; name: string; region: string | null } | null;
   caption: string | null;
   createdAt: string;
 }
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const limit = Math.min(parseInt(searchParams.get("limit") ?? "30"), 60);
-  const offset = parseInt(searchParams.get("offset") ?? "0");
+  const limit = Math.min(Math.max(1, parseInt(searchParams.get("limit") ?? "30") || 30), 60);
+  const offset = Math.max(0, parseInt(searchParams.get("offset") ?? "0") || 0);
   const courseId = searchParams.get("courseId");
   const region = searchParams.get("region");
 
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
       review: {
         select: {
           createdAt: true,
-          course: { select: { id: true, name: true, region: true } },
+          course: { select: { id: true, slug: true, name: true, region: true } },
         },
       },
     },
@@ -93,7 +93,7 @@ export async function GET(request: NextRequest) {
       checkpoint: {
         select: {
           name: true,
-          course: { select: { id: true, name: true, region: true } },
+          course: { select: { id: true, slug: true, name: true, region: true } },
         },
       },
     },

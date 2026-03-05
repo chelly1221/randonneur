@@ -11,6 +11,7 @@ import { ArchiveToggleButton } from "@/components/admin/archive-toggle-button";
 
 interface CourseItem {
   id: string;
+  slug: string;
   courseNumber: string | null;
   name: string;
   distanceKm: number;
@@ -264,7 +265,7 @@ export default function AdminCoursesPage() {
                     </td>
                     <td className="px-4 py-3">
                       <Link
-                        href={`/courses/${course.id}`}
+                        href={`/courses/${course.slug}`}
                         className="font-medium hover:text-t-link"
                       >
                         {course.name}

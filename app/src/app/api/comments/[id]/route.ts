@@ -25,6 +25,9 @@ export async function PUT(
     return NextResponse.json({ error: "Comment not found" }, { status: 404 });
   }
 
+  if (user.status === "banned" || user.status === "muted") {
+    return NextResponse.json({ error: "Account restricted" }, { status: 403 });
+  }
   if (comment.userId !== user.id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }

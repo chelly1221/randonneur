@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { getPresignedUrl } from "@/lib/minio";
 
 export async function GET(request: NextRequest) {
   const session = await auth();
@@ -25,5 +26,19 @@ export async function GET(request: NextRequest) {
     },
   });
 
-  return NextResponse.json(requests);
+  const withUrls = await Promise.all(
+    requests.map(async (req) => {
+      const imageUrls: string[] = [];
+      for (const key of req.images) {
+        try {
+          imageUrls.push(await getPresignedUrl(key));
+        } catch {
+          imageUrls.push("");
+        }
+      }
+      return { ...req, imageUrls };
+    })
+  );
+
+  return NextResponse.json(withUrls);
 }

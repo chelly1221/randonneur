@@ -50,7 +50,7 @@ interface RecruitData {
   updatedAt: string;
   participantCount: number;
   user: { id: string; displayName: string; avatarKey: string | null };
-  course: { id: string; name: string; distanceKm: number; region: string | null } | null;
+  course: { id: string; slug: string; name: string; distanceKm: number; region: string | null } | null;
   participants: Participant[];
 }
 
@@ -285,7 +285,7 @@ export function RideRecruitDetail({
           {recruit.course && (
             <div className="mt-3">
               <Link
-                href={`/courses/${recruit.course.id}`}
+                href={`/courses/${recruit.course.slug}`}
                 className="inline-flex items-center gap-1 text-sm text-sky-blue hover:underline"
               >
                 <ExternalLink className="h-3.5 w-3.5" />

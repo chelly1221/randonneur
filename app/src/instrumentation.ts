@@ -50,6 +50,42 @@ export async function register() {
 
   // Alberta Randonneurs — check every 6 hours
   setInterval(checkAndRunAlbertaScraper, 6 * 60 * 60 * 1000);
+
+  // Audax Germany — check every 6 hours
+  setInterval(checkAndRunAudaxDeScraper, 6 * 60 * 60 * 1000);
+
+  // Audax Ireland — check every 6 hours
+  setInterval(checkAndRunAudaxIrelandScraper, 6 * 60 * 60 * 1000);
+
+  // Audax Italy — check every 6 hours
+  setInterval(checkAndRunAudaxItalyScraper, 6 * 60 * 60 * 1000);
+
+  // Audax Japan — check every 6 hours
+  setInterval(checkAndRunAudaxJapanScraper, 6 * 60 * 60 * 1000);
+
+  // Randonneurs Norway — check every 6 hours
+  setInterval(checkAndRunRandonneursNoScraper, 6 * 60 * 60 * 1000);
+
+  // Kiwi Randonneurs (NZ) — check every 6 hours
+  setInterval(checkAndRunKiwiRandonneursScraper, 6 * 60 * 60 * 1000);
+
+  // Audax UK — check every 6 hours
+  setInterval(checkAndRunAudaxUkScraper, 6 * 60 * 60 * 1000);
+
+  // RUSA (USA) — check every 6 hours
+  setInterval(checkAndRunRusaScraper, 6 * 60 * 60 * 1000);
+
+  // Rancat (Spain) — check every 6 hours
+  setInterval(checkAndRunRancatScraper, 6 * 60 * 60 * 1000);
+
+  // Audax Denmark — check every 6 hours
+  setInterval(checkAndRunAudaxDkScraper, 6 * 60 * 60 * 1000);
+
+  // SR France — check every 6 hours
+  setInterval(checkAndRunSrFranceScraper, 6 * 60 * 60 * 1000);
+
+  // Audax South Africa — check every 6 hours
+  setInterval(checkAndRunAudaxSaScraper, 6 * 60 * 60 * 1000);
 }
 
 async function checkAndRunAcpScraper() {
@@ -435,5 +471,545 @@ async function checkAndRunAlbertaScraper() {
     // Prisma not available — ignore
   } finally {
     runningScrapers.delete(scraperName);
+  }
+}
+
+async function checkAndRunAudaxDeScraper() {
+  try {
+    const { PrismaClient } = await import("@prisma/client");
+    const prisma = new PrismaClient();
+
+    try {
+      const enabledSetting = await prisma.setting.findUnique({
+        where: { key: "DE_SCRAPER_ENABLED" },
+      });
+      if (enabledSetting?.value === "false") return;
+
+      const lastScrapeSetting = await prisma.setting.findUnique({
+        where: { key: "DE_LAST_SCRAPE_DATE" },
+      });
+
+      if (lastScrapeSetting) {
+        const lastScrape = new Date(lastScrapeSetting.value);
+        const now = new Date();
+        const toMonth = (d: Date) => {
+          const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+          return kst.toISOString().slice(0, 7);
+        };
+        if (toMonth(lastScrape) === toMonth(now)) return;
+      }
+
+      console.log("[audax-de] Starting monthly scrape...");
+      const { runAudaxDeScraper } = await import("./lib/audax-de-scraper");
+      const result = await runAudaxDeScraper();
+      console.log(
+        `[audax-de] Done: ${result.created} created, ${result.updated} updated, ${result.skipped} skipped, ${result.errors.length} errors`
+      );
+      if (result.errors.length > 0) {
+        console.warn("[audax-de] Errors:", result.errors.slice(0, 5));
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("[audax-de] Failed:", msg);
+    } finally {
+      await prisma.$disconnect();
+    }
+  } catch {
+    // Prisma not available — ignore
+  }
+}
+
+async function checkAndRunAudaxIrelandScraper() {
+  try {
+    const { PrismaClient } = await import("@prisma/client");
+    const prisma = new PrismaClient();
+
+    try {
+      const enabledSetting = await prisma.setting.findUnique({
+        where: { key: "IE_SCRAPER_ENABLED" },
+      });
+      if (enabledSetting?.value === "false") return;
+
+      const lastScrapeSetting = await prisma.setting.findUnique({
+        where: { key: "IE_LAST_SCRAPE_DATE" },
+      });
+
+      if (lastScrapeSetting) {
+        const lastScrape = new Date(lastScrapeSetting.value);
+        const now = new Date();
+        const toMonth = (d: Date) => {
+          const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+          return kst.toISOString().slice(0, 7);
+        };
+        if (toMonth(lastScrape) === toMonth(now)) return;
+      }
+
+      console.log("[audax-ireland] Starting monthly scrape...");
+      const { runAudaxIrelandScraper } = await import("./lib/audax-ireland-scraper");
+      const result = await runAudaxIrelandScraper();
+      console.log(
+        `[audax-ireland] Done: ${result.created} created, ${result.updated} updated, ${result.skipped} skipped, ${result.errors.length} errors`
+      );
+      if (result.errors.length > 0) {
+        console.warn("[audax-ireland] Errors:", result.errors.slice(0, 5));
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("[audax-ireland] Failed:", msg);
+    } finally {
+      await prisma.$disconnect();
+    }
+  } catch {
+    // Prisma not available — ignore
+  }
+}
+
+async function checkAndRunAudaxItalyScraper() {
+  try {
+    const { PrismaClient } = await import("@prisma/client");
+    const prisma = new PrismaClient();
+
+    try {
+      const enabledSetting = await prisma.setting.findUnique({
+        where: { key: "IT_SCRAPER_ENABLED" },
+      });
+      if (enabledSetting?.value === "false") return;
+
+      const lastScrapeSetting = await prisma.setting.findUnique({
+        where: { key: "IT_LAST_SCRAPE_DATE" },
+      });
+
+      if (lastScrapeSetting) {
+        const lastScrape = new Date(lastScrapeSetting.value);
+        const now = new Date();
+        const toMonth = (d: Date) => {
+          const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+          return kst.toISOString().slice(0, 7);
+        };
+        if (toMonth(lastScrape) === toMonth(now)) return;
+      }
+
+      console.log("[audax-italy] Starting monthly scrape...");
+      const { runAudaxItalyScraper } = await import("./lib/audax-italy-scraper");
+      const result = await runAudaxItalyScraper();
+      console.log(
+        `[audax-italy] Done: ${result.created} created, ${result.updated} updated, ${result.skipped} skipped, ${result.errors.length} errors`
+      );
+      if (result.errors.length > 0) {
+        console.warn("[audax-italy] Errors:", result.errors.slice(0, 5));
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("[audax-italy] Failed:", msg);
+    } finally {
+      await prisma.$disconnect();
+    }
+  } catch {
+    // Prisma not available — ignore
+  }
+}
+
+async function checkAndRunAudaxJapanScraper() {
+  try {
+    const { PrismaClient } = await import("@prisma/client");
+    const prisma = new PrismaClient();
+
+    try {
+      const enabledSetting = await prisma.setting.findUnique({
+        where: { key: "JP_SCRAPER_ENABLED" },
+      });
+      if (enabledSetting?.value === "false") return;
+
+      const lastScrapeSetting = await prisma.setting.findUnique({
+        where: { key: "JP_LAST_SCRAPE_DATE" },
+      });
+
+      if (lastScrapeSetting) {
+        const lastScrape = new Date(lastScrapeSetting.value);
+        const now = new Date();
+        const toMonth = (d: Date) => {
+          const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+          return kst.toISOString().slice(0, 7);
+        };
+        if (toMonth(lastScrape) === toMonth(now)) return;
+      }
+
+      console.log("[audax-japan] Starting monthly scrape...");
+      const { runAudaxJapanScraper } = await import("./lib/audax-japan-scraper");
+      const result = await runAudaxJapanScraper();
+      console.log(
+        `[audax-japan] Done: ${result.created} created, ${result.updated} updated, ${result.skipped} skipped, ${result.errors.length} errors`
+      );
+      if (result.errors.length > 0) {
+        console.warn("[audax-japan] Errors:", result.errors.slice(0, 5));
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("[audax-japan] Failed:", msg);
+    } finally {
+      await prisma.$disconnect();
+    }
+  } catch {
+    // Prisma not available — ignore
+  }
+}
+
+async function checkAndRunRandonneursNoScraper() {
+  try {
+    const { PrismaClient } = await import("@prisma/client");
+    const prisma = new PrismaClient();
+
+    try {
+      const enabledSetting = await prisma.setting.findUnique({
+        where: { key: "NO_SCRAPER_ENABLED" },
+      });
+      if (enabledSetting?.value === "false") return;
+
+      const lastScrapeSetting = await prisma.setting.findUnique({
+        where: { key: "NO_LAST_SCRAPE_DATE" },
+      });
+
+      if (lastScrapeSetting) {
+        const lastScrape = new Date(lastScrapeSetting.value);
+        const now = new Date();
+        const toMonth = (d: Date) => {
+          const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+          return kst.toISOString().slice(0, 7);
+        };
+        if (toMonth(lastScrape) === toMonth(now)) return;
+      }
+
+      console.log("[randonneurs-no] Starting monthly scrape...");
+      const { runRandonneursNoScraper } = await import("./lib/randonneurs-no-scraper");
+      const result = await runRandonneursNoScraper();
+      console.log(
+        `[randonneurs-no] Done: ${result.created} created, ${result.updated} updated, ${result.skipped} skipped, ${result.errors.length} errors`
+      );
+      if (result.errors.length > 0) {
+        console.warn("[randonneurs-no] Errors:", result.errors.slice(0, 5));
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("[randonneurs-no] Failed:", msg);
+    } finally {
+      await prisma.$disconnect();
+    }
+  } catch {
+    // Prisma not available — ignore
+  }
+}
+
+async function checkAndRunKiwiRandonneursScraper() {
+  try {
+    const { PrismaClient } = await import("@prisma/client");
+    const prisma = new PrismaClient();
+
+    try {
+      const enabledSetting = await prisma.setting.findUnique({
+        where: { key: "NZ_SCRAPER_ENABLED" },
+      });
+      if (enabledSetting?.value === "false") return;
+
+      const lastScrapeSetting = await prisma.setting.findUnique({
+        where: { key: "NZ_LAST_SCRAPE_DATE" },
+      });
+
+      if (lastScrapeSetting) {
+        const lastScrape = new Date(lastScrapeSetting.value);
+        const now = new Date();
+        const toMonth = (d: Date) => {
+          const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+          return kst.toISOString().slice(0, 7);
+        };
+        if (toMonth(lastScrape) === toMonth(now)) return;
+      }
+
+      console.log("[kiwi-randonneurs] Starting monthly scrape...");
+      const { runKiwiRandonneursScraper } = await import("./lib/kiwi-randonneurs-scraper");
+      const result = await runKiwiRandonneursScraper();
+      console.log(
+        `[kiwi-randonneurs] Done: ${result.created} created, ${result.updated} updated, ${result.skipped} skipped, ${result.errors.length} errors`
+      );
+      if (result.errors.length > 0) {
+        console.warn("[kiwi-randonneurs] Errors:", result.errors.slice(0, 5));
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("[kiwi-randonneurs] Failed:", msg);
+    } finally {
+      await prisma.$disconnect();
+    }
+  } catch {
+    // Prisma not available — ignore
+  }
+}
+
+async function checkAndRunAudaxUkScraper() {
+  try {
+    const { PrismaClient } = await import("@prisma/client");
+    const prisma = new PrismaClient();
+
+    try {
+      const enabledSetting = await prisma.setting.findUnique({
+        where: { key: "GB_SCRAPER_ENABLED" },
+      });
+      if (enabledSetting?.value === "false") return;
+
+      const lastScrapeSetting = await prisma.setting.findUnique({
+        where: { key: "GB_LAST_SCRAPE_DATE" },
+      });
+
+      if (lastScrapeSetting) {
+        const lastScrape = new Date(lastScrapeSetting.value);
+        const now = new Date();
+        const toMonth = (d: Date) => {
+          const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+          return kst.toISOString().slice(0, 7);
+        };
+        if (toMonth(lastScrape) === toMonth(now)) return;
+      }
+
+      console.log("[audax-uk] Starting monthly scrape...");
+      const { runAudaxUkScraper } = await import("./lib/audax-uk-scraper");
+      const result = await runAudaxUkScraper();
+      console.log(
+        `[audax-uk] Done: ${result.created} created, ${result.updated} updated, ${result.skipped} skipped, ${result.errors.length} errors`
+      );
+      if (result.errors.length > 0) {
+        console.warn("[audax-uk] Errors:", result.errors.slice(0, 5));
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("[audax-uk] Failed:", msg);
+    } finally {
+      await prisma.$disconnect();
+    }
+  } catch {
+    // Prisma not available — ignore
+  }
+}
+
+async function checkAndRunRusaScraper() {
+  try {
+    const { PrismaClient } = await import("@prisma/client");
+    const prisma = new PrismaClient();
+
+    try {
+      const enabledSetting = await prisma.setting.findUnique({
+        where: { key: "US_SCRAPER_ENABLED" },
+      });
+      if (enabledSetting?.value === "false") return;
+
+      const lastScrapeSetting = await prisma.setting.findUnique({
+        where: { key: "US_LAST_SCRAPE_DATE" },
+      });
+
+      if (lastScrapeSetting) {
+        const lastScrape = new Date(lastScrapeSetting.value);
+        const now = new Date();
+        const toMonth = (d: Date) => {
+          const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+          return kst.toISOString().slice(0, 7);
+        };
+        if (toMonth(lastScrape) === toMonth(now)) return;
+      }
+
+      console.log("[rusa] Starting monthly scrape...");
+      const { runRusaScraper } = await import("./lib/rusa-scraper");
+      const result = await runRusaScraper();
+      console.log(
+        `[rusa] Done: ${result.created} created, ${result.updated} updated, ${result.skipped} skipped, ${result.errors.length} errors`
+      );
+      if (result.errors.length > 0) {
+        console.warn("[rusa] Errors:", result.errors.slice(0, 5));
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("[rusa] Failed:", msg);
+    } finally {
+      await prisma.$disconnect();
+    }
+  } catch {
+    // Prisma not available — ignore
+  }
+}
+
+async function checkAndRunRancatScraper() {
+  try {
+    const { PrismaClient } = await import("@prisma/client");
+    const prisma = new PrismaClient();
+
+    try {
+      const enabledSetting = await prisma.setting.findUnique({
+        where: { key: "ES_SCRAPER_ENABLED" },
+      });
+      if (enabledSetting?.value === "false") return;
+
+      const lastScrapeSetting = await prisma.setting.findUnique({
+        where: { key: "ES_LAST_SCRAPE_DATE" },
+      });
+
+      if (lastScrapeSetting) {
+        const lastScrape = new Date(lastScrapeSetting.value);
+        const now = new Date();
+        const toMonth = (d: Date) => {
+          const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+          return kst.toISOString().slice(0, 7);
+        };
+        if (toMonth(lastScrape) === toMonth(now)) return;
+      }
+
+      console.log("[rancat] Starting monthly scrape...");
+      const { runRancatScraper } = await import("./lib/rancat-scraper");
+      const result = await runRancatScraper();
+      console.log(
+        `[rancat] Done: ${result.created} created, ${result.updated} updated, ${result.skipped} skipped, ${result.errors.length} errors`
+      );
+      if (result.errors.length > 0) {
+        console.warn("[rancat] Errors:", result.errors.slice(0, 5));
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("[rancat] Failed:", msg);
+    } finally {
+      await prisma.$disconnect();
+    }
+  } catch {
+    // Prisma not available — ignore
+  }
+}
+
+async function checkAndRunAudaxDkScraper() {
+  try {
+    const { PrismaClient } = await import("@prisma/client");
+    const prisma = new PrismaClient();
+
+    try {
+      const enabledSetting = await prisma.setting.findUnique({
+        where: { key: "DK_SCRAPER_ENABLED" },
+      });
+      if (enabledSetting?.value === "false") return;
+
+      const lastScrapeSetting = await prisma.setting.findUnique({
+        where: { key: "DK_LAST_SCRAPE_DATE" },
+      });
+
+      if (lastScrapeSetting) {
+        const lastScrape = new Date(lastScrapeSetting.value);
+        const now = new Date();
+        const toMonth = (d: Date) => {
+          const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+          return kst.toISOString().slice(0, 7);
+        };
+        if (toMonth(lastScrape) === toMonth(now)) return;
+      }
+
+      console.log("[audax-dk] Starting monthly scrape...");
+      const { runAudaxDkScraper } = await import("./lib/audax-dk-scraper");
+      const result = await runAudaxDkScraper();
+      console.log(
+        `[audax-dk] Done: ${result.created} created, ${result.updated} updated, ${result.skipped} skipped, ${result.errors.length} errors`
+      );
+      if (result.errors.length > 0) {
+        console.warn("[audax-dk] Errors:", result.errors.slice(0, 5));
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("[audax-dk] Failed:", msg);
+    } finally {
+      await prisma.$disconnect();
+    }
+  } catch {
+    // Prisma not available — ignore
+  }
+}
+
+async function checkAndRunSrFranceScraper() {
+  try {
+    const { PrismaClient } = await import("@prisma/client");
+    const prisma = new PrismaClient();
+
+    try {
+      const enabledSetting = await prisma.setting.findUnique({
+        where: { key: "FR_SCRAPER_ENABLED" },
+      });
+      if (enabledSetting?.value === "false") return;
+
+      const lastScrapeSetting = await prisma.setting.findUnique({
+        where: { key: "FR_LAST_SCRAPE_DATE" },
+      });
+
+      if (lastScrapeSetting) {
+        const lastScrape = new Date(lastScrapeSetting.value);
+        const now = new Date();
+        const toMonth = (d: Date) => {
+          const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+          return kst.toISOString().slice(0, 7);
+        };
+        if (toMonth(lastScrape) === toMonth(now)) return;
+      }
+
+      console.log("[sr-france] Starting monthly scrape...");
+      const { runSrFranceScraper } = await import("./lib/sr-france-scraper");
+      const result = await runSrFranceScraper();
+      console.log(
+        `[sr-france] Done: ${result.created} created, ${result.updated} updated, ${result.skipped} skipped, ${result.errors.length} errors`
+      );
+      if (result.errors.length > 0) {
+        console.warn("[sr-france] Errors:", result.errors.slice(0, 5));
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("[sr-france] Failed:", msg);
+    } finally {
+      await prisma.$disconnect();
+    }
+  } catch {
+    // Prisma not available — ignore
+  }
+}
+
+async function checkAndRunAudaxSaScraper() {
+  try {
+    const { PrismaClient } = await import("@prisma/client");
+    const prisma = new PrismaClient();
+
+    try {
+      const enabledSetting = await prisma.setting.findUnique({
+        where: { key: "ZA_SCRAPER_ENABLED" },
+      });
+      if (enabledSetting?.value === "false") return;
+
+      const lastScrapeSetting = await prisma.setting.findUnique({
+        where: { key: "ZA_LAST_SCRAPE_DATE" },
+      });
+
+      if (lastScrapeSetting) {
+        const lastScrape = new Date(lastScrapeSetting.value);
+        const now = new Date();
+        const toMonth = (d: Date) => {
+          const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+          return kst.toISOString().slice(0, 7);
+        };
+        if (toMonth(lastScrape) === toMonth(now)) return;
+      }
+
+      console.log("[audax-sa] Starting monthly scrape...");
+      const { runAudaxSaScraper } = await import("./lib/audax-sa-scraper");
+      const result = await runAudaxSaScraper();
+      console.log(
+        `[audax-sa] Done: ${result.created} created, ${result.updated} updated, ${result.skipped} skipped, ${result.errors.length} errors`
+      );
+      if (result.errors.length > 0) {
+        console.warn("[audax-sa] Errors:", result.errors.slice(0, 5));
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("[audax-sa] Failed:", msg);
+    } finally {
+      await prisma.$disconnect();
+    }
+  } catch {
+    // Prisma not available — ignore
   }
 }

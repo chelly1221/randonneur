@@ -32,7 +32,7 @@ export default async function RideDetailPage({
         select: { id: true, displayName: true, avatarKey: true },
       },
       course: {
-        select: { id: true, name: true, distanceKm: true, region: true },
+        select: { id: true, slug: true, name: true, distanceKm: true, region: true },
       },
       participants: {
         where: { status: "joined" },

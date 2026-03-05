@@ -1,3 +1,5 @@
+import { generateUniqueCourseSlug } from "./slug";
+
 /**
  * Audax Australia Permanent Course Scraper
  *
@@ -429,7 +431,7 @@ async function fetchAndProcessRoute(routeUrl: string, rideId: string): Promise<{
     gpxFileKey = `courses/au-${rideId}.gpx`;
     await minioLib.uploadGpx(gpxFileKey, gpxBuffer);
   } catch {
-    // Non-critical — geometry and elevation still available without MinIO upload
+    gpxFileKey = null; // Reset — file not actually in MinIO
   }
 
   return { gpxFileKey, elevationM, elevationProfile, geojsonGeometry };
@@ -557,6 +559,16 @@ export async function runAudaxAuScraper(): Promise<ScrapeResult> {
             }
           }
 
+          // Regenerate slug if name or distance changed
+          if (updates.name !== undefined || updates.distanceKm !== undefined) {
+            updates.slug = await generateUniqueCourseSlug(
+              (updates.name as string) ?? existing.name,
+              (updates.distanceKm as number) ?? existing.distanceKm,
+              existing.courseNumber ?? "",
+              existing.id
+            );
+          }
+
           if (Object.keys(updates).length > 0) {
             await prisma.course.update({
               where: { id: existing.id },
@@ -623,9 +635,17 @@ export async function runAudaxAuScraper(): Promise<ScrapeResult> {
         const tags: string[] = [];
         if (row.locale) tags.push(row.locale);
 
+        // Skip courses without GPX - can't display on map
+        if (!gpxFileKey) {
+          result.skipped++;
+          continue;
+        }
+
         // Create course
+        const courseSlug = await generateUniqueCourseSlug(row.name, row.distanceKm, `AU-${row.rideId}`);
         const course = await prisma.course.create({
           data: {
+            slug: courseSlug,
             courseNumber: `AU-${row.rideId}`,
             name: row.name,
             distanceKm: row.distanceKm,

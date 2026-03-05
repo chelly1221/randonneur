@@ -13,6 +13,7 @@ export async function GET(
   const reviews = await prisma.review.findMany({
     where: { courseId: id },
     orderBy: { createdAt: "desc" },
+    take: 100,
     include: {
       user: { select: { id: true, displayName: true } },
       _count: { select: { comments: true, likes: true } },

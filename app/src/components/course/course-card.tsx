@@ -14,6 +14,7 @@ import {
 interface CourseCardProps {
   course: {
     id: string;
+    slug: string;
     name: string;
     distanceKm: number;
     elevationM: number;
@@ -36,7 +37,7 @@ export function CourseCard({ course }: CourseCardProps) {
         <div className="mb-3 flex items-start justify-between">
           <div className="flex-1">
             <Link
-              href={`/courses/${course.id}`}
+              href={`/courses/${course.slug}`}
               className="text-lg font-semibold group-hover:text-t-link transition-colors"
             >
               {categories.map((cat) => (
@@ -47,7 +48,7 @@ export function CourseCard({ course }: CourseCardProps) {
               {course.name}
             </Link>
           </div>
-          <Badge variant="primary">{course.region}</Badge>
+          {course.region && <Badge variant="primary">{course.region}</Badge>}
         </div>
 
         <div className="mb-3 grid grid-cols-3 gap-3 text-sm text-t-sub">

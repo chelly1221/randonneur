@@ -9,7 +9,7 @@ interface ActivityEntry {
   id: string;
   type: "completion" | "review";
   user: { id: string; displayName: string; avatarKey?: string };
-  course: { id: string; name: string; distanceKm: number; region: string };
+  course: { id: string; slug: string; name: string; distanceKm: number; region: string };
   date: string;
   content?: string;
 }
@@ -32,7 +32,10 @@ export default function FollowingFeed() {
     }
 
     fetch("/api/activity?limit=8&filter=following")
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error("fetch failed");
+        return res.json();
+      })
       .then((d) => {
         setData(d);
         setLoading(false);
@@ -85,7 +88,7 @@ export default function FollowingFeed() {
                 {a.type === "completion" ? "완주" : "후기"}
               </span>
               <Link
-                href={`/courses/${a.course.id}`}
+                href={`/courses/${a.course.slug}`}
                 className="text-sky-blue truncate hover:underline"
               >
                 {a.course.name}

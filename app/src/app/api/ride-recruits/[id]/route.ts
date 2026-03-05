@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireActiveUser } from "@/lib/user-guard";
 import { auth } from "@/lib/auth";
+import { sanitizeHtml } from "@/lib/sanitize";
 
 export async function GET(
   _request: NextRequest,
@@ -16,7 +17,7 @@ export async function GET(
         select: { id: true, displayName: true, avatarKey: true },
       },
       course: {
-        select: { id: true, name: true, distanceKm: true, region: true },
+        select: { id: true, slug: true, name: true, distanceKm: true, region: true },
       },
       participants: {
         where: { status: "joined" },
@@ -70,7 +71,7 @@ export async function PUT(
   }
 
   if (description !== undefined) {
-    data.description = description?.trim() || null;
+    data.description = description ? sanitizeHtml(description.trim()) : null;
   }
 
   if (rideDate !== undefined) {

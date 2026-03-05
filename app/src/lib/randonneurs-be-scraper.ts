@@ -1,3 +1,5 @@
+import { generateUniqueCourseSlug } from "./slug";
+
 /**
  * Randonneurs.be Permanent Course Scraper
  *
@@ -164,15 +166,22 @@ function parseListingPage(html: string): ParsedCourse[] {
  * Extract RideWithGPS route URL from a course detail page.
  */
 function extractRwgpsUrl(html: string): string | null {
-  // Look for RideWithGPS route URL
+  // Look for RideWithGPS route/trip URL (direct links)
   const rwgpsMatch = html.match(
     /https?:\/\/ridewithgps\.com\/(?:routes|trips)\/(\d+)/i
   );
   if (rwgpsMatch) return rwgpsMatch[0];
 
-  // Fallback: check href attributes
+  // Check for RWGPS embed iframes: ridewithgps.com/embeds?type=route&id=XXXXX
+  // Handle HTML entity variants: &amp; &#038; or plain &
+  const embedMatch = html.match(
+    /(?:ridewithgps|rwgps-embeds)\.com\/embeds\?type=route(?:&amp;|&#0?38;|&)id=(\d+)/i
+  );
+  if (embedMatch) return `https://ridewithgps.com/routes/${embedMatch[1]}`;
+
+  // Fallback: check href attributes (but skip organization URLs)
   const linkMatch = html.match(
-    /href=["'](https?:\/\/ridewithgps\.com\/[^"']+)["']/i
+    /href=["'](https?:\/\/ridewithgps\.com\/(?:routes|trips)\/[^"']+)["']/i
   );
   if (linkMatch) return linkMatch[1];
 
@@ -355,7 +364,7 @@ async function fetchAndProcessRoute(
     gpxFileKey = `courses/be-${slug}.gpx`;
     await minioLib.uploadGpx(gpxFileKey, gpxBuffer);
   } catch {
-    // Non-critical — geometry and elevation still available without MinIO upload
+    gpxFileKey = null; // Reset — file not actually in MinIO
   }
 
   return { gpxFileKey, elevationM, distanceKm, elevationProfile, geojsonGeometry };
@@ -465,6 +474,16 @@ export async function runRandonneursBeScraper(): Promise<ScrapeResult> {
             }
           }
 
+          // Regenerate slug if name or distance changed
+          if (updates.name !== undefined || updates.distanceKm !== undefined) {
+            updates.slug = await generateUniqueCourseSlug(
+              (updates.name as string) ?? existing.name,
+              (updates.distanceKm as number) ?? existing.distanceKm,
+              existing.courseNumber ?? "",
+              existing.id
+            );
+          }
+
           if (Object.keys(updates).length > 0) {
             await prisma.course.update({
               where: { id: existing.id },
@@ -532,9 +551,17 @@ export async function runRandonneursBeScraper(): Promise<ScrapeResult> {
           designer = designerMatch[1];
         }
 
+        // Skip courses without GPX - can't display on map
+        if (!gpxFileKey) {
+          result.skipped++;
+          continue;
+        }
+
         // Create course
+        const courseSlug = await generateUniqueCourseSlug(course.name, distanceKm || 0, `BE-${course.slug.replace(/^perm-/, "").toUpperCase().slice(0, 20)}`);
         const newCourse = await prisma.course.create({
           data: {
+            slug: courseSlug,
             courseNumber: `BE-${course.slug.replace(/^perm-/, "").toUpperCase().slice(0, 20)}`,
             name: course.name,
             distanceKm: distanceKm || 0,

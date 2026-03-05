@@ -13,7 +13,7 @@ interface ReviewEntry {
   content: string;
   createdAt: string;
   user: { id: string; displayName: string; avatarKey: string | null };
-  course: { id: string; name: string; distanceKm: number; region: string | null };
+  course: { id: string; slug: string; name: string; distanceKm: number; region: string | null };
   _count: { comments: number; likes: number };
 }
 
@@ -53,8 +53,11 @@ export function RecentReviews() {
 
   useEffect(() => {
     fetch("/api/community/recent-reviews?limit=10")
-      .then((r) => r.json())
-      .then(setReviews)
+      .then((r) => {
+        if (!r.ok) throw new Error("fetch failed");
+        return r.json();
+      })
+      .then((data) => { if (Array.isArray(data)) setReviews(data); })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
@@ -100,7 +103,7 @@ export function RecentReviews() {
 
           {/* Row 2: course link */}
           <Link
-            href={`/courses/${review.course.id}`}
+            href={`/courses/${review.course.slug}`}
             className="block text-[11px] text-sky-blue hover:underline truncate mt-0.5"
           >
             {review.course.name}

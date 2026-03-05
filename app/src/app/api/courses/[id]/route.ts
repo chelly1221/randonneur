@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { logAuditAction, AUDIT_ACTIONS } from "@/lib/audit";
+import { generateUniqueCourseSlug } from "@/lib/slug";
 
 const SR_CATEGORY = "sr-600";
 const SR_TIME_LIMIT = "60시간";
@@ -54,7 +55,7 @@ export async function PUT(
   const body = await request.json();
   const existing = await prisma.course.findUnique({
     where: { id },
-    select: { id: true, category: true, courseNumber: true },
+    select: { id: true, name: true, distanceKm: true, category: true, courseNumber: true },
   });
   if (!existing) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -92,6 +93,16 @@ export async function PUT(
     data.estimatedTime = SR_TIME_LIMIT;
   } else if ("estimatedTime" in body) {
     data.estimatedTime = body.estimatedTime;
+  }
+
+  // Regenerate slug when name, distance, or courseNumber changes
+  const nameChanged = "name" in body && body.name !== existing.name;
+  const distanceChanged = "distanceKm" in body && body.distanceKm !== existing.distanceKm;
+  const courseNumberChanged = "courseNumber" in body && nextCourseNumber !== existing.courseNumber;
+  if (nameChanged || distanceChanged || courseNumberChanged) {
+    const slugName = "name" in body ? body.name : existing.name;
+    const slugDistance = "distanceKm" in body ? body.distanceKm : existing.distanceKm;
+    data.slug = await generateUniqueCourseSlug(slugName, slugDistance, nextCourseNumber, id);
   }
 
   const course = await prisma.course.update({

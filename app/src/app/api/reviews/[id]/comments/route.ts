@@ -50,7 +50,10 @@ export async function POST(
 
   const { id: reviewId } = await params;
 
-  const review = await prisma.review.findUnique({ where: { id: reviewId } });
+  const review = await prisma.review.findUnique({
+    where: { id: reviewId },
+    include: { course: { select: { slug: true } } },
+  });
   if (!review) {
     return NextResponse.json({ error: "Review not found" }, { status: 404 });
   }
@@ -93,7 +96,7 @@ export async function POST(
       "comment",
       "새 댓글",
       `${user.displayName}님이 댓글을 남겼습니다`,
-      `/courses/${review.courseId}`
+      `/courses/${review.course.slug}`
     ).catch(() => {});
   }
 
@@ -113,7 +116,7 @@ export async function POST(
           "comment",
           "새 답글",
           `${user.displayName}님이 답글을 남겼습니다`,
-          `/courses/${review.courseId}`
+          `/courses/${review.course.slug}`
         ).catch(() => {});
       }
     }).catch(() => {});

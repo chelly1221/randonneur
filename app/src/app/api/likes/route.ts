@@ -15,6 +15,9 @@ export async function POST(request: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
+  if (user.status === "banned" || user.status === "muted") {
+    return NextResponse.json({ error: "Account restricted" }, { status: 403 });
+  }
 
   const body = await request.json();
   const { reviewId, commentId } = body;
@@ -32,18 +35,30 @@ export async function POST(request: NextRequest) {
     });
 
     if (existing) {
-      await prisma.like.delete({ where: { id: existing.id } });
+      try {
+        await prisma.like.delete({ where: { id: existing.id } });
+      } catch {
+        // Already deleted by concurrent request
+      }
       const count = await prisma.like.count({ where: { reviewId } });
       return NextResponse.json({ liked: false, count });
     }
 
-    await prisma.like.create({ data: { userId: user.id, reviewId } });
+    try {
+      await prisma.like.create({ data: { userId: user.id, reviewId } });
+    } catch (e: unknown) {
+      if (e && typeof e === "object" && "code" in e && e.code === "P2002") {
+        const count = await prisma.like.count({ where: { reviewId } });
+        return NextResponse.json({ liked: true, count });
+      }
+      throw e;
+    }
     const count = await prisma.like.count({ where: { reviewId } });
 
     // Notify the review author (non-blocking, skip if liking own review)
     prisma.review.findUnique({
       where: { id: reviewId },
-      select: { userId: true, courseId: true },
+      select: { userId: true, course: { select: { slug: true } } },
     }).then((review) => {
       if (review && review.userId !== user.id) {
         createNotification(
@@ -51,7 +66,7 @@ export async function POST(request: NextRequest) {
           "like",
           "좋아요",
           `${user.displayName}님이 리뷰에 좋아요를 눌렀습니다`,
-          `/courses/${review.courseId}`
+          `/courses/${review.course.slug}`
         ).catch(() => {});
       }
     }).catch(() => {});
@@ -65,18 +80,30 @@ export async function POST(request: NextRequest) {
     });
 
     if (existing) {
-      await prisma.like.delete({ where: { id: existing.id } });
+      try {
+        await prisma.like.delete({ where: { id: existing.id } });
+      } catch {
+        // Already deleted by concurrent request
+      }
       const count = await prisma.like.count({ where: { commentId } });
       return NextResponse.json({ liked: false, count });
     }
 
-    await prisma.like.create({ data: { userId: user.id, commentId } });
+    try {
+      await prisma.like.create({ data: { userId: user.id, commentId } });
+    } catch (e: unknown) {
+      if (e && typeof e === "object" && "code" in e && e.code === "P2002") {
+        const count = await prisma.like.count({ where: { commentId } });
+        return NextResponse.json({ liked: true, count });
+      }
+      throw e;
+    }
     const count = await prisma.like.count({ where: { commentId } });
 
     // Notify the comment author (non-blocking, skip if liking own comment)
     prisma.comment.findUnique({
       where: { id: commentId },
-      select: { userId: true, review: { select: { courseId: true } } },
+      select: { userId: true, review: { select: { course: { select: { slug: true } } } } },
     }).then((comment) => {
       if (comment && comment.userId !== user.id) {
         createNotification(
@@ -84,7 +111,7 @@ export async function POST(request: NextRequest) {
           "like",
           "좋아요",
           `${user.displayName}님이 댓글에 좋아요를 눌렀습니다`,
-          `/courses/${comment.review.courseId}`
+          `/courses/${comment.review.course.slug}`
         ).catch(() => {});
       }
     }).catch(() => {});

@@ -15,6 +15,9 @@ export async function POST(request: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
+  if (user.status === "banned") {
+    return NextResponse.json({ error: "Account restricted" }, { status: 403 });
+  }
 
   const body = await request.json();
   const { followingId } = body;
@@ -35,7 +38,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Target user not found" }, { status: 404 });
   }
 
-  // Toggle follow/unfollow
+  // Toggle follow/unfollow (race-safe)
   const existing = await prisma.follow.findUnique({
     where: {
       followerId_followingId: {
@@ -46,16 +49,27 @@ export async function POST(request: NextRequest) {
   });
 
   if (existing) {
-    await prisma.follow.delete({ where: { id: existing.id } });
+    try {
+      await prisma.follow.delete({ where: { id: existing.id } });
+    } catch {
+      // Already deleted by concurrent request
+    }
     return NextResponse.json({ following: false });
   }
 
-  await prisma.follow.create({
-    data: {
-      followerId: user.id,
-      followingId,
-    },
-  });
+  try {
+    await prisma.follow.create({
+      data: {
+        followerId: user.id,
+        followingId,
+      },
+    });
+  } catch (e: unknown) {
+    if (e && typeof e === "object" && "code" in e && e.code === "P2002") {
+      return NextResponse.json({ following: true });
+    }
+    throw e;
+  }
 
   // Notify the followed user (non-blocking)
   createNotification(

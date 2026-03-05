@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { sendAdminNotification } from "@/lib/push";
 import { sanitizeHtml } from "@/lib/sanitize";
+import { getPresignedUrl } from "@/lib/minio";
 
 export async function GET(
   _request: NextRequest,
@@ -26,7 +27,18 @@ export async function GET(
     where: { userId_courseId: { userId: user.id, courseId } },
   });
 
-  return NextResponse.json(req ?? null);
+  if (!req) return NextResponse.json(null);
+
+  const imageUrls: string[] = [];
+  for (const key of req.images) {
+    try {
+      imageUrls.push(await getPresignedUrl(key));
+    } catch {
+      imageUrls.push("");
+    }
+  }
+
+  return NextResponse.json({ ...req, imageUrls });
 }
 
 export async function PUT(

@@ -37,7 +37,7 @@ export function logAuditAction(
           action,
           targetType: targetType ?? null,
           targetId: targetId ?? null,
-          details: details ?? undefined,
+          details: details ? JSON.parse(JSON.stringify(details)) : undefined,
           ipHash: ipHash ?? null,
         },
       });

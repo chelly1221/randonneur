@@ -7,7 +7,7 @@ interface CompletionEntry {
   id: string;
   completedAt: string;
   user: { id: string; displayName: string; avatarKey?: string };
-  course: { id: string; name: string; distanceKm: number; elevationM: number; region: string };
+  course: { id: string; slug: string; name: string; distanceKm: number; elevationM: number; region: string };
 }
 
 export default function RecentCompletionsFeed({ country }: { country?: string } = {}) {
@@ -16,13 +16,16 @@ export default function RecentCompletionsFeed({ country }: { country?: string } 
 
   useEffect(() => {
     fetch(`/api/community/recent-completions?limit=8${country ? `&country=${country}` : ""}`)
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error("fetch failed");
+        return res.json();
+      })
       .then((data) => {
-        setCompletions(data);
+        if (Array.isArray(data)) setCompletions(data);
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, []);
+  }, [country]);
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -54,7 +57,7 @@ export default function RecentCompletionsFeed({ country }: { country?: string } 
               </Link>
               <span className="text-t-faint">→</span>
               <Link
-                href={`/courses/${c.course.id}`}
+                href={`/courses/${c.course.slug}`}
                 className="text-sky-blue truncate hover:underline"
               >
                 {c.course.name}

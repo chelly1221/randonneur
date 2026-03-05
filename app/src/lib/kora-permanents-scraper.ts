@@ -1,3 +1,5 @@
+import { generateUniqueCourseSlug } from "./slug";
+
 /**
  * Korea Randonneurs Permanent Course Scraper
  *
@@ -413,6 +415,7 @@ async function fetchAndProcessRoute(rwgpsUrl: string, code: string): Promise<{
     gpxFileKey = `courses/${code.toLowerCase()}.gpx`;
     await minioLib.uploadGpx(gpxFileKey, gpxBuffer);
   } catch {
+    gpxFileKey = null; // Reset — file not actually in MinIO
     // Non-critical
   }
 
@@ -537,6 +540,16 @@ export async function runKoraPermScraper(): Promise<ScrapeResult> {
             }
           }
 
+          // Regenerate slug if name or distance changed
+          if (updates.name !== undefined || updates.distanceKm !== undefined) {
+            updates.slug = await generateUniqueCourseSlug(
+              (updates.name as string) ?? existing.name,
+              (updates.distanceKm as number) ?? existing.distanceKm,
+              existing.courseNumber ?? "",
+              existing.id
+            );
+          }
+
           if (Object.keys(updates).length > 0) {
             await prisma.course.update({
               where: { id: existing.id },
@@ -596,9 +609,17 @@ export async function runKoraPermScraper(): Promise<ScrapeResult> {
         // Official page URL: prefer RWGPS, fallback to Google Drive
         const officialPageUrl = rwgpsUrl || googleDriveUrl || null;
 
+        // Skip courses without GPX - can't display on map
+        if (!gpxFileKey) {
+          result.skipped++;
+          continue;
+        }
+
         // Create course
+        const courseSlug = await generateUniqueCourseSlug(row.name, row.distanceKm, row.courseNumber);
         const course = await prisma.course.create({
           data: {
+            slug: courseSlug,
             courseNumber: row.courseNumber,
             name: row.name,
             distanceKm: row.distanceKm,

@@ -9,6 +9,7 @@ import { Sparkles } from "lucide-react";
 
 interface CourseRec {
   id: string;
+  slug: string;
   name: string;
   distanceKm: number;
   elevationM: number;
@@ -16,13 +17,13 @@ interface CourseRec {
   region: string | null;
 }
 
-export function CourseRecommendations() {
+export function CourseRecommendations({ country }: { country?: string } = {}) {
   const { data: session } = useSession();
   const [courses, setCourses] = useState<CourseRec[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/courses/recommendations?limit=6")
+    fetch(`/api/courses/recommendations?limit=6${country ? `&country=${country}` : ""}`)
       .then((r) => r.json())
       .then((data) => setCourses(Array.isArray(data) ? data : []))
       .catch(() => {})
@@ -60,7 +61,7 @@ export function CourseRecommendations() {
         {courses.map((course) => (
           <Link
             key={course.id}
-            href={`/courses/${course.id}`}
+            href={`/courses/${course.slug}`}
             className="shrink-0"
           >
             <Card className="w-64 hover:border-t-accent transition-colors">

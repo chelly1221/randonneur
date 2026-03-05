@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import type { ReactNode } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { interpolatePointOnLine } from "@/lib/geo-utils";
@@ -26,6 +27,7 @@ interface CourseMapProps {
   userLocation?: [number, number] | null;
   closestPoint?: [number, number] | null;
   className?: string;
+  children?: ReactNode;
 }
 
 export function CourseMap({
@@ -36,6 +38,7 @@ export function CourseMap({
   userLocation,
   closestPoint,
   className = "h-96",
+  children,
 }: CourseMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -68,7 +71,6 @@ export function CourseMap({
     });
 
     map.addControl(new maplibregl.AttributionControl({ compact: true }));
-    map.addControl(new maplibregl.NavigationControl(), "top-right");
 
     // Force attribution to start collapsed (MapLibre auto-opens on desktop)
     const collapseAttrib = () => {
@@ -215,5 +217,9 @@ export function CourseMap({
     }
   }, [closestPoint]);
 
-  return <div ref={containerRef} className={className} />;
+  return (
+    <div ref={containerRef} className={`${className} relative`}>
+      {children}
+    </div>
+  );
 }

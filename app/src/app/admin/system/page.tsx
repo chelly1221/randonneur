@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +21,380 @@ interface BackupFile {
   filename: string;
   size: number;
   createdAt: string;
+}
+
+interface ScraperStatus {
+  enabled: boolean;
+  lastScrapeDate: string | null;
+  lastResult: {
+    created: number;
+    updated: number;
+    skipped: number;
+    errors: number;
+    total: number;
+    timestamp: string;
+  } | null;
+  [key: string]: unknown;
+}
+
+interface ScraperRunResult {
+  created: number;
+  updated: number;
+  skipped: number;
+  errors: string[];
+  total: number;
+}
+
+interface ScraperConfig {
+  id: string;
+  title: string;
+  description: string;
+  apiPath: string;
+  countKey: string;
+  countLabel: string;
+  icon: "bike" | "globe";
+}
+
+const SCRAPER_CONFIGS: ScraperConfig[] = [
+  {
+    id: "kora",
+    title: "ACP BRM 스크래퍼",
+    description: "ACP (Audax Club Parisien) BRM 월드 캘린더에서 전세계 브레베 일정을 자동으로 가져와 이벤트로 등록합니다. 매일 1회 자동 실행됩니다.",
+    apiPath: "/api/admin/scraper/kora",
+    countKey: "koraEventCount",
+    countLabel: "ACP 이벤트 수",
+    icon: "bike",
+  },
+  {
+    id: "audax-au",
+    title: "Audax Australia 퍼머넌트 스크래퍼",
+    description: "Audax Australia 퍼머넌트 코스를 자동으로 가져와 세계 코스로 등록합니다. RideWithGPS에서 GPX 파일도 함께 다운로드합니다. 매월 1회 자동 실행됩니다.",
+    apiPath: "/api/admin/scraper/audax-au",
+    countKey: "auCourseCount",
+    countLabel: "AU 코스 수",
+    icon: "globe",
+  },
+  {
+    id: "kora-perm",
+    title: "한국 퍼머넌트 스크래퍼",
+    description: "한국 란도너스 웹사이트에서 퍼머넌트 코스 정보와 GPX를 자동으로 가져옵니다. 매월 1회 자동 실행됩니다.",
+    apiPath: "/api/admin/scraper/kora-permanents",
+    countKey: "krCourseCount",
+    countLabel: "KR 코스 수",
+    icon: "bike",
+  },
+  {
+    id: "randonneurs-be",
+    title: "Randonneurs.be 퍼머넌트 스크래퍼",
+    description: "Randonneurs.be 벨기에 퍼머넌트 코스를 자동으로 가져옵니다. 매월 1회 자동 실행됩니다.",
+    apiPath: "/api/admin/scraper/randonneurs-be",
+    countKey: "beCourseCount",
+    countLabel: "BE 코스 수",
+    icon: "globe",
+  },
+  {
+    id: "bcr",
+    title: "BC Randonneurs 퍼머넌트 스크래퍼",
+    description: "BC Randonneurs (캐나다 브리티시컬럼비아) 퍼머넌트 코스를 자동으로 가져옵니다. 매월 1회 자동 실행됩니다.",
+    apiPath: "/api/admin/scraper/bcr",
+    countKey: "bcrCourseCount",
+    countLabel: "CA-BC 코스 수",
+    icon: "globe",
+  },
+  {
+    id: "ontario",
+    title: "Randonneurs Ontario 스크래퍼",
+    description: "Randonneurs Ontario (캐나다 온타리오) 4개 챕터의 코스를 RWGPS 및 GPX에서 자동으로 가져옵니다. 매월 1회 자동 실행됩니다.",
+    apiPath: "/api/admin/scraper/ontario-randonneurs",
+    countKey: "orCourseCount",
+    countLabel: "CA-ON 코스 수",
+    icon: "globe",
+  },
+  {
+    id: "alberta",
+    title: "Alberta Randonneurs 스크래퍼",
+    description: "Alberta Randonneurs (캐나다 앨버타) 퍼머넌트 코스를 자동으로 가져옵니다. 매월 1회 자동 실행됩니다.",
+    apiPath: "/api/admin/scraper/alberta-randonneurs",
+    countKey: "abCourseCount",
+    countLabel: "CA-AB 코스 수",
+    icon: "globe",
+  },
+  {
+    id: "audax-de",
+    title: "Audax Germany 스크래퍼",
+    description: "Audax Randonneure Deutschland 퍼머넌트 코스를 자동으로 가져옵니다. 매월 1회 자동 실행됩니다.",
+    apiPath: "/api/admin/scraper/audax-de",
+    countKey: "deCourseCount",
+    countLabel: "DE 코스 수",
+    icon: "globe",
+  },
+  {
+    id: "audax-ireland",
+    title: "Audax Ireland 스크래퍼",
+    description: "Audax Ireland 퍼머넌트 코스를 자동으로 가져옵니다. 매월 1회 자동 실행됩니다.",
+    apiPath: "/api/admin/scraper/audax-ireland",
+    countKey: "ieCourseCount",
+    countLabel: "IE 코스 수",
+    icon: "globe",
+  },
+  {
+    id: "audax-italy",
+    title: "Audax Italy 스크래퍼",
+    description: "Audax Italia 퍼머넌트 코스를 자동으로 가져옵니다. 매월 1회 자동 실행됩니다.",
+    apiPath: "/api/admin/scraper/audax-italy",
+    countKey: "itCourseCount",
+    countLabel: "IT 코스 수",
+    icon: "globe",
+  },
+  {
+    id: "audax-japan",
+    title: "Audax Japan 스크래퍼",
+    description: "Audax Japan 퍼머넌트 코스를 자동으로 가져옵니다. 매월 1회 자동 실행됩니다.",
+    apiPath: "/api/admin/scraper/audax-japan",
+    countKey: "jpCourseCount",
+    countLabel: "JP 코스 수",
+    icon: "globe",
+  },
+  {
+    id: "randonneurs-no",
+    title: "Randonneurs Norway 스크래퍼",
+    description: "Norsk Randonneur 퍼머넌트 코스를 자동으로 가져옵니다. 매월 1회 자동 실행됩니다.",
+    apiPath: "/api/admin/scraper/randonneurs-no",
+    countKey: "noCourseCount",
+    countLabel: "NO 코스 수",
+    icon: "globe",
+  },
+  {
+    id: "kiwi-randonneurs",
+    title: "Kiwi Randonneurs 스크래퍼",
+    description: "Kiwi Randonneurs (뉴질랜드) 퍼머넌트 코스를 자동으로 가져옵니다. 매월 1회 자동 실행됩니다.",
+    apiPath: "/api/admin/scraper/kiwi-randonneurs",
+    countKey: "nzCourseCount",
+    countLabel: "NZ 코스 수",
+    icon: "globe",
+  },
+  {
+    id: "audax-uk",
+    title: "Audax UK 스크래퍼",
+    description: "Audax UK 퍼머넌트 코스를 자동으로 가져옵니다. 매월 1회 자동 실행됩니다.",
+    apiPath: "/api/admin/scraper/audax-uk",
+    countKey: "gbCourseCount",
+    countLabel: "GB 코스 수",
+    icon: "globe",
+  },
+  {
+    id: "rusa",
+    title: "RUSA 스크래퍼",
+    description: "RUSA (Randonneurs USA) 퍼머넌트 코스를 자동으로 가져옵니다. 매월 1회 자동 실행됩니다.",
+    apiPath: "/api/admin/scraper/rusa",
+    countKey: "usCourseCount",
+    countLabel: "US 코스 수",
+    icon: "globe",
+  },
+  {
+    id: "rancat",
+    title: "Rancat 스크래퍼",
+    description: "Rancat (카탈루냐/스페인) 퍼머넌트 코스를 자동으로 가져옵니다. 매월 1회 자동 실행됩니다.",
+    apiPath: "/api/admin/scraper/rancat",
+    countKey: "esCourseCount",
+    countLabel: "ES 코스 수",
+    icon: "globe",
+  },
+  {
+    id: "audax-dk",
+    title: "Audax Denmark 스크래퍼",
+    description: "Audax Club Denmark 퍼머넌트 코스를 자동으로 가져옵니다. 매월 1회 자동 실행됩니다.",
+    apiPath: "/api/admin/scraper/audax-dk",
+    countKey: "dkCourseCount",
+    countLabel: "DK 코스 수",
+    icon: "globe",
+  },
+  {
+    id: "sr-france",
+    title: "SR France 스크래퍼",
+    description: "프랑스 Super Randonnée 코스를 자동으로 가져옵니다. 매월 1회 자동 실행됩니다.",
+    apiPath: "/api/admin/scraper/sr-france",
+    countKey: "frCourseCount",
+    countLabel: "FR 코스 수",
+    icon: "globe",
+  },
+  {
+    id: "audax-sa",
+    title: "Audax South Africa 스크래퍼",
+    description: "Audax South Africa Super Randonnée 코스를 자동으로 가져옵니다. 매월 1회 자동 실행됩니다.",
+    apiPath: "/api/admin/scraper/audax-sa",
+    countKey: "zaCourseCount",
+    countLabel: "ZA 코스 수",
+    icon: "globe",
+  },
+];
+
+function ScraperSection({ config }: { config: ScraperConfig }) {
+  const [status, setStatus] = useState<ScraperStatus | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [runResult, setRunResult] = useState<ScraperRunResult | null>(null);
+
+  const fetchStatus = useCallback(() => {
+    setLoading(true);
+    fetch(config.apiPath)
+      .then((r) => r.json())
+      .then(setStatus)
+      .catch(() => setStatus(null))
+      .finally(() => setLoading(false));
+  }, [config.apiPath]);
+
+  async function toggle() {
+    if (!status) return;
+    const newEnabled = !status.enabled;
+    try {
+      const res = await fetch(config.apiPath, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: newEnabled }),
+      });
+      if (res.ok) {
+        setStatus((prev) => prev ? { ...prev, enabled: newEnabled } : null);
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  async function run() {
+    setRunning(true);
+    setRunResult(null);
+    try {
+      const res = await fetch(config.apiPath, { method: "POST" });
+      const data = await res.json();
+      setRunResult(data);
+      fetchStatus();
+    } catch {
+      setRunResult({ created: 0, updated: 0, skipped: 0, errors: ["요청 실패"], total: 0 });
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  useEffect(() => {
+    fetchStatus();
+  }, [fetchStatus]);
+
+  const Icon = config.icon === "bike" ? Bike : Globe;
+  const courseCount = status ? (status[config.countKey] as number) : null;
+
+  return (
+    <div className="mt-10">
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="text-xl font-bold flex items-center gap-2">
+          <Icon className="h-5 w-5" />
+          {config.title}
+        </h2>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={fetchStatus} disabled={loading}>
+            <RefreshCw className={`mr-1 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            새로고침
+          </Button>
+          <Button size="sm" onClick={run} disabled={running}>
+            {running ? (
+              <RefreshCw className="mr-1 h-4 w-4 animate-spin" />
+            ) : (
+              <Play className="mr-1 h-4 w-4" />
+            )}
+            {running ? "실행 중..." : "지금 실행"}
+          </Button>
+        </div>
+      </div>
+
+      <p className="mb-4 text-sm text-t-muted">{config.description}</p>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-4">
+        <Card>
+          <CardContent className="py-3">
+            <p className="text-xs text-t-muted">상태</p>
+            <div className="mt-1 flex items-center gap-2">
+              <button
+                onClick={toggle}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  status?.enabled ? "bg-sky-blue" : "bg-gray-300"
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    status?.enabled ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </button>
+              <span className="text-sm font-medium">
+                {status?.enabled ? "활성" : "비활성"}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="py-3">
+            <p className="text-xs text-t-muted">{config.countLabel}</p>
+            <p className="mt-1 text-lg font-bold">
+              {courseCount ?? "—"}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="py-3">
+            <p className="text-xs text-t-muted">마지막 실행</p>
+            <p className="mt-1 text-sm font-medium">
+              {status?.lastScrapeDate
+                ? new Date(status.lastScrapeDate).toLocaleString("ko-KR")
+                : "실행 기록 없음"}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="py-3">
+            <p className="text-xs text-t-muted">마지막 결과</p>
+            {status?.lastResult ? (
+              <div className="mt-1 text-xs space-y-0.5">
+                <p>생성 <strong>{status.lastResult.created}</strong> / 업데이트 <strong>{status.lastResult.updated}</strong></p>
+                <p>스킵 {status.lastResult.skipped} / 오류 {status.lastResult.errors}</p>
+              </div>
+            ) : (
+              <p className="mt-1 text-sm text-t-muted">—</p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {runResult && (
+        <Card className={`mb-4 ${runResult.errors.length > 0 ? "border-sky-orange" : "border-green-300"}`}>
+          <CardContent className="py-3">
+            <div className="flex items-start gap-2">
+              {runResult.errors.length > 0 ? (
+                <AlertTriangle className="h-4 w-4 text-sky-orange mt-0.5 shrink-0" />
+              ) : (
+                <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
+              )}
+              <div className="text-sm">
+                <p className="font-medium">
+                  수동 실행 완료: {runResult.total}개 발견, {runResult.created}개 생성,{" "}
+                  {runResult.updated}개 업데이트, {runResult.skipped}개 스킵
+                </p>
+                {runResult.errors.length > 0 && (
+                  <div className="mt-1 text-xs text-t-muted">
+                    {runResult.errors.slice(0, 5).map((err, i) => (
+                      <p key={i}>{err}</p>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
 }
 
 function formatFileSize(bytes: number): string {
@@ -48,173 +422,6 @@ export default function SystemStatusPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // KORA Scraper state
-  const [scraperStatus, setScraperStatus] = useState<{
-    enabled: boolean;
-    lastScrapeDate: string | null;
-    lastResult: {
-      created: number;
-      updated: number;
-      skipped: number;
-      errors: number;
-      total: number;
-      timestamp: string;
-    } | null;
-    koraEventCount: number;
-  } | null>(null);
-  const [scraperLoading, setScraperLoading] = useState(false);
-  const [scraperRunning, setScraperRunning] = useState(false);
-  const [scraperRunResult, setScraperRunResult] = useState<{
-    created: number;
-    updated: number;
-    skipped: number;
-    errors: string[];
-    total: number;
-  } | null>(null);
-
-  // Audax AU Scraper state
-  const [krPermScraperStatus, setKrPermScraperStatus] = useState<{
-    enabled: boolean;
-    lastScrapeDate: string | null;
-    lastResult: {
-      created: number;
-      updated: number;
-      skipped: number;
-      errors: number;
-      total: number;
-      timestamp: string;
-    } | null;
-    krCourseCount: number;
-  } | null>(null);
-  const [krPermScraperLoading, setKrPermScraperLoading] = useState(false);
-  const [krPermScraperRunning, setKrPermScraperRunning] = useState(false);
-  const [krPermScraperRunResult, setKrPermScraperRunResult] = useState<{
-    created: number;
-    updated: number;
-    skipped: number;
-    errors: string[];
-    total: number;
-  } | null>(null);
-
-  // BC Randonneurs Scraper state
-  const [bcrScraperStatus, setBcrScraperStatus] = useState<{
-    enabled: boolean;
-    lastScrapeDate: string | null;
-    lastResult: {
-      created: number;
-      updated: number;
-      skipped: number;
-      errors: number;
-      total: number;
-      timestamp: string;
-    } | null;
-    bcrCourseCount: number;
-  } | null>(null);
-  const [bcrScraperLoading, setBcrScraperLoading] = useState(false);
-  const [bcrScraperRunning, setBcrScraperRunning] = useState(false);
-  const [bcrScraperRunResult, setBcrScraperRunResult] = useState<{
-    created: number;
-    updated: number;
-    skipped: number;
-    errors: string[];
-    total: number;
-  } | null>(null);
-
-  // Ontario Randonneurs Scraper state
-  const [orScraperStatus, setOrScraperStatus] = useState<{
-    enabled: boolean;
-    lastScrapeDate: string | null;
-    lastResult: {
-      created: number;
-      updated: number;
-      skipped: number;
-      errors: number;
-      total: number;
-      timestamp: string;
-    } | null;
-    orCourseCount: number;
-  } | null>(null);
-  const [orScraperLoading, setOrScraperLoading] = useState(false);
-  const [orScraperRunning, setOrScraperRunning] = useState(false);
-  const [orScraperRunResult, setOrScraperRunResult] = useState<{
-    created: number;
-    updated: number;
-    skipped: number;
-    errors: string[];
-    total: number;
-  } | null>(null);
-
-  // Alberta Randonneurs Scraper state
-  const [abScraperStatus, setAbScraperStatus] = useState<{
-    enabled: boolean;
-    lastScrapeDate: string | null;
-    lastResult: {
-      created: number;
-      updated: number;
-      skipped: number;
-      errors: number;
-      total: number;
-      timestamp: string;
-    } | null;
-    abCourseCount: number;
-  } | null>(null);
-  const [abScraperLoading, setAbScraperLoading] = useState(false);
-  const [abScraperRunning, setAbScraperRunning] = useState(false);
-  const [abScraperRunResult, setAbScraperRunResult] = useState<{
-    created: number;
-    updated: number;
-    skipped: number;
-    errors: string[];
-    total: number;
-  } | null>(null);
-
-  // Randonneurs.be Scraper state
-  const [beScraperStatus, setBeScraperStatus] = useState<{
-    enabled: boolean;
-    lastScrapeDate: string | null;
-    lastResult: {
-      created: number;
-      updated: number;
-      skipped: number;
-      errors: number;
-      total: number;
-      timestamp: string;
-    } | null;
-    beCourseCount: number;
-  } | null>(null);
-  const [beScraperLoading, setBeScraperLoading] = useState(false);
-  const [beScraperRunning, setBeScraperRunning] = useState(false);
-  const [beScraperRunResult, setBeScraperRunResult] = useState<{
-    created: number;
-    updated: number;
-    skipped: number;
-    errors: string[];
-    total: number;
-  } | null>(null);
-
-  const [auScraperStatus, setAuScraperStatus] = useState<{
-    enabled: boolean;
-    lastScrapeDate: string | null;
-    lastResult: {
-      created: number;
-      updated: number;
-      skipped: number;
-      errors: number;
-      total: number;
-      timestamp: string;
-    } | null;
-    auCourseCount: number;
-  } | null>(null);
-  const [auScraperLoading, setAuScraperLoading] = useState(false);
-  const [auScraperRunning, setAuScraperRunning] = useState(false);
-  const [auScraperRunResult, setAuScraperRunResult] = useState<{
-    created: number;
-    updated: number;
-    skipped: number;
-    errors: string[];
-    total: number;
-  } | null>(null);
 
   function fetchHealth() {
     setLoading(true);
@@ -317,293 +524,6 @@ export default function SystemStatusPage() {
     }
   }
 
-  function fetchScraperStatus() {
-    setScraperLoading(true);
-    fetch("/api/admin/scraper/kora")
-      .then((r) => r.json())
-      .then(setScraperStatus)
-      .catch(() => setScraperStatus(null))
-      .finally(() => setScraperLoading(false));
-  }
-
-  async function toggleScraper() {
-    if (!scraperStatus) return;
-    const newEnabled = !scraperStatus.enabled;
-    try {
-      const res = await fetch("/api/admin/scraper/kora", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enabled: newEnabled }),
-      });
-      if (res.ok) {
-        setScraperStatus((prev) => prev ? { ...prev, enabled: newEnabled } : null);
-      }
-    } catch {
-      // ignore
-    }
-  }
-
-  async function runScraper() {
-    setScraperRunning(true);
-    setScraperRunResult(null);
-    try {
-      const res = await fetch("/api/admin/scraper/kora", { method: "POST" });
-      const data = await res.json();
-      setScraperRunResult(data);
-      fetchScraperStatus();
-    } catch {
-      setScraperRunResult({ created: 0, updated: 0, skipped: 0, errors: ["요청 실패"], total: 0 });
-    } finally {
-      setScraperRunning(false);
-    }
-  }
-
-  function fetchBcrScraperStatus() {
-    setBcrScraperLoading(true);
-    fetch("/api/admin/scraper/bcr")
-      .then((r) => r.json())
-      .then(setBcrScraperStatus)
-      .catch(() => setBcrScraperStatus(null))
-      .finally(() => setBcrScraperLoading(false));
-  }
-
-  async function toggleBcrScraper() {
-    if (!bcrScraperStatus) return;
-    const newEnabled = !bcrScraperStatus.enabled;
-    try {
-      const res = await fetch("/api/admin/scraper/bcr", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enabled: newEnabled }),
-      });
-      if (res.ok) {
-        setBcrScraperStatus((prev) => prev ? { ...prev, enabled: newEnabled } : null);
-      }
-    } catch {
-      // ignore
-    }
-  }
-
-  async function runBcrScraper() {
-    setBcrScraperRunning(true);
-    setBcrScraperRunResult(null);
-    try {
-      const res = await fetch("/api/admin/scraper/bcr", { method: "POST" });
-      const data = await res.json();
-      setBcrScraperRunResult(data);
-      fetchBcrScraperStatus();
-    } catch {
-      setBcrScraperRunResult({ created: 0, updated: 0, skipped: 0, errors: ["요청 실패"], total: 0 });
-    } finally {
-      setBcrScraperRunning(false);
-    }
-  }
-
-  function fetchOrScraperStatus() {
-    setOrScraperLoading(true);
-    fetch("/api/admin/scraper/ontario-randonneurs")
-      .then((r) => r.json())
-      .then(setOrScraperStatus)
-      .catch(() => setOrScraperStatus(null))
-      .finally(() => setOrScraperLoading(false));
-  }
-
-  async function toggleOrScraper() {
-    if (!orScraperStatus) return;
-    const newEnabled = !orScraperStatus.enabled;
-    try {
-      const res = await fetch("/api/admin/scraper/ontario-randonneurs", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enabled: newEnabled }),
-      });
-      if (res.ok) {
-        setOrScraperStatus((prev) => prev ? { ...prev, enabled: newEnabled } : null);
-      }
-    } catch {
-      // ignore
-    }
-  }
-
-  async function runOrScraper() {
-    setOrScraperRunning(true);
-    setOrScraperRunResult(null);
-    try {
-      const res = await fetch("/api/admin/scraper/ontario-randonneurs", { method: "POST" });
-      const data = await res.json();
-      setOrScraperRunResult(data);
-      fetchOrScraperStatus();
-    } catch {
-      setOrScraperRunResult({ created: 0, updated: 0, skipped: 0, errors: ["요청 실패"], total: 0 });
-    } finally {
-      setOrScraperRunning(false);
-    }
-  }
-
-  function fetchAbScraperStatus() {
-    setAbScraperLoading(true);
-    fetch("/api/admin/scraper/alberta-randonneurs")
-      .then((r) => r.json())
-      .then(setAbScraperStatus)
-      .catch(() => setAbScraperStatus(null))
-      .finally(() => setAbScraperLoading(false));
-  }
-
-  async function toggleAbScraper() {
-    if (!abScraperStatus) return;
-    const newEnabled = !abScraperStatus.enabled;
-    try {
-      const res = await fetch("/api/admin/scraper/alberta-randonneurs", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enabled: newEnabled }),
-      });
-      if (res.ok) {
-        setAbScraperStatus((prev) => prev ? { ...prev, enabled: newEnabled } : null);
-      }
-    } catch {
-      // ignore
-    }
-  }
-
-  async function runAbScraper() {
-    setAbScraperRunning(true);
-    setAbScraperRunResult(null);
-    try {
-      const res = await fetch("/api/admin/scraper/alberta-randonneurs", { method: "POST" });
-      const data = await res.json();
-      setAbScraperRunResult(data);
-      fetchAbScraperStatus();
-    } catch {
-      setAbScraperRunResult({ created: 0, updated: 0, skipped: 0, errors: ["요청 실패"], total: 0 });
-    } finally {
-      setAbScraperRunning(false);
-    }
-  }
-
-  function fetchBeScraperStatus() {
-    setBeScraperLoading(true);
-    fetch("/api/admin/scraper/randonneurs-be")
-      .then((r) => r.json())
-      .then(setBeScraperStatus)
-      .catch(() => setBeScraperStatus(null))
-      .finally(() => setBeScraperLoading(false));
-  }
-
-  async function toggleBeScraper() {
-    if (!beScraperStatus) return;
-    const newEnabled = !beScraperStatus.enabled;
-    try {
-      const res = await fetch("/api/admin/scraper/randonneurs-be", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enabled: newEnabled }),
-      });
-      if (res.ok) {
-        setBeScraperStatus((prev) => prev ? { ...prev, enabled: newEnabled } : null);
-      }
-    } catch {
-      // ignore
-    }
-  }
-
-  async function runBeScraper() {
-    setBeScraperRunning(true);
-    setBeScraperRunResult(null);
-    try {
-      const res = await fetch("/api/admin/scraper/randonneurs-be", { method: "POST" });
-      const data = await res.json();
-      setBeScraperRunResult(data);
-      fetchBeScraperStatus();
-    } catch {
-      setBeScraperRunResult({ created: 0, updated: 0, skipped: 0, errors: ["요청 실패"], total: 0 });
-    } finally {
-      setBeScraperRunning(false);
-    }
-  }
-
-  function fetchAuScraperStatus() {
-    setAuScraperLoading(true);
-    fetch("/api/admin/scraper/audax-au")
-      .then((r) => r.json())
-      .then(setAuScraperStatus)
-      .catch(() => setAuScraperStatus(null))
-      .finally(() => setAuScraperLoading(false));
-  }
-
-  async function toggleAuScraper() {
-    if (!auScraperStatus) return;
-    const newEnabled = !auScraperStatus.enabled;
-    try {
-      const res = await fetch("/api/admin/scraper/audax-au", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enabled: newEnabled }),
-      });
-      if (res.ok) {
-        setAuScraperStatus((prev) => prev ? { ...prev, enabled: newEnabled } : null);
-      }
-    } catch {
-      // ignore
-    }
-  }
-
-  async function runAuScraper() {
-    setAuScraperRunning(true);
-    setAuScraperRunResult(null);
-    try {
-      const res = await fetch("/api/admin/scraper/audax-au", { method: "POST" });
-      const data = await res.json();
-      setAuScraperRunResult(data);
-      fetchAuScraperStatus();
-    } catch {
-      setAuScraperRunResult({ created: 0, updated: 0, skipped: 0, errors: ["요청 실패"], total: 0 });
-    } finally {
-      setAuScraperRunning(false);
-    }
-  }
-
-  function fetchKrPermScraperStatus() {
-    setKrPermScraperLoading(true);
-    fetch("/api/admin/scraper/kora-permanents")
-      .then((r) => r.json())
-      .then(setKrPermScraperStatus)
-      .catch(() => setKrPermScraperStatus(null))
-      .finally(() => setKrPermScraperLoading(false));
-  }
-
-  async function toggleKrPermScraper() {
-    if (!krPermScraperStatus) return;
-    const newEnabled = !krPermScraperStatus.enabled;
-    try {
-      const res = await fetch("/api/admin/scraper/kora-permanents", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enabled: newEnabled }),
-      });
-      if (res.ok) {
-        setKrPermScraperStatus((prev) => prev ? { ...prev, enabled: newEnabled } : null);
-      }
-    } catch {
-      // ignore
-    }
-  }
-
-  async function runKrPermScraper() {
-    setKrPermScraperRunning(true);
-    setKrPermScraperRunResult(null);
-    try {
-      const res = await fetch("/api/admin/scraper/kora-permanents", { method: "POST" });
-      const data = await res.json();
-      setKrPermScraperRunResult(data);
-      fetchKrPermScraperStatus();
-    } catch {
-      setKrPermScraperRunResult({ created: 0, updated: 0, skipped: 0, errors: ["요청 실패"], total: 0 });
-    } finally {
-      setKrPermScraperRunning(false);
-    }
-  }
-
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -618,13 +538,6 @@ export default function SystemStatusPage() {
   useEffect(() => {
     fetchHealth();
     fetchBackups();
-    fetchScraperStatus();
-    fetchAuScraperStatus();
-    fetchBeScraperStatus();
-    fetchBcrScraperStatus();
-    fetchOrScraperStatus();
-    fetchAbScraperStatus();
-    fetchKrPermScraperStatus();
   }, []);
 
   // Auto-reload after successful restore (server restarts itself)
@@ -688,872 +601,10 @@ export default function SystemStatusPage() {
         )}
       </div>
 
-      {/* KORA Scraper Section */}
-      <div className="mt-10">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-bold flex items-center gap-2">
-            <Bike className="h-5 w-5" />
-            ACP BRM 스크래퍼
-          </h2>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={fetchScraperStatus}
-              disabled={scraperLoading}
-            >
-              <RefreshCw className={`mr-1 h-4 w-4 ${scraperLoading ? "animate-spin" : ""}`} />
-              새로고침
-            </Button>
-            <Button
-              size="sm"
-              onClick={runScraper}
-              disabled={scraperRunning}
-            >
-              {scraperRunning ? (
-                <RefreshCw className="mr-1 h-4 w-4 animate-spin" />
-              ) : (
-                <Play className="mr-1 h-4 w-4" />
-              )}
-              {scraperRunning ? "실행 중..." : "지금 실행"}
-            </Button>
-          </div>
-        </div>
-
-        <p className="mb-4 text-sm text-t-muted">
-          ACP (Audax Club Parisien) BRM 월드 캘린더에서 전세계 브레베 일정을 자동으로 가져와 이벤트로 등록합니다.
-          매일 1회 자동 실행됩니다.
-        </p>
-
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-4">
-          <Card>
-            <CardContent className="py-3">
-              <p className="text-xs text-t-muted">상태</p>
-              <div className="mt-1 flex items-center gap-2">
-                <button
-                  onClick={toggleScraper}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    scraperStatus?.enabled ? "bg-sky-blue" : "bg-gray-300"
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      scraperStatus?.enabled ? "translate-x-6" : "translate-x-1"
-                    }`}
-                  />
-                </button>
-                <span className="text-sm font-medium">
-                  {scraperStatus?.enabled ? "활성" : "비활성"}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="py-3">
-              <p className="text-xs text-t-muted">ACP 이벤트 수</p>
-              <p className="mt-1 text-lg font-bold">
-                {scraperStatus?.koraEventCount ?? "—"}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="py-3">
-              <p className="text-xs text-t-muted">마지막 실행</p>
-              <p className="mt-1 text-sm font-medium">
-                {scraperStatus?.lastScrapeDate
-                  ? new Date(scraperStatus.lastScrapeDate).toLocaleString("ko-KR")
-                  : "실행 기록 없음"}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="py-3">
-              <p className="text-xs text-t-muted">마지막 결과</p>
-              {scraperStatus?.lastResult ? (
-                <div className="mt-1 text-xs space-y-0.5">
-                  <p>생성 <strong>{scraperStatus.lastResult.created}</strong> / 업데이트 <strong>{scraperStatus.lastResult.updated}</strong></p>
-                  <p>스킵 {scraperStatus.lastResult.skipped} / 오류 {scraperStatus.lastResult.errors}</p>
-                </div>
-              ) : (
-                <p className="mt-1 text-sm text-t-muted">—</p>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {scraperRunResult && (
-          <Card className={`mb-4 ${scraperRunResult.errors.length > 0 ? "border-sky-orange" : "border-green-300"}`}>
-            <CardContent className="py-3">
-              <div className="flex items-start gap-2">
-                {scraperRunResult.errors.length > 0 ? (
-                  <AlertTriangle className="h-4 w-4 text-sky-orange mt-0.5 shrink-0" />
-                ) : (
-                  <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
-                )}
-                <div className="text-sm">
-                  <p className="font-medium">
-                    수동 실행 완료: {scraperRunResult.total}개 발견, {scraperRunResult.created}개 생성,{" "}
-                    {scraperRunResult.updated}개 업데이트, {scraperRunResult.skipped}개 스킵
-                  </p>
-                  {scraperRunResult.errors.length > 0 && (
-                    <div className="mt-1 text-xs text-t-muted">
-                      {scraperRunResult.errors.slice(0, 5).map((err, i) => (
-                        <p key={i}>{err}</p>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-
-      {/* Audax Australia Scraper Section */}
-      <div className="mt-10">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-bold flex items-center gap-2">
-            <Globe className="h-5 w-5" />
-            Audax Australia 퍼머넌트 스크래퍼
-          </h2>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={fetchAuScraperStatus}
-              disabled={auScraperLoading}
-            >
-              <RefreshCw className={`mr-1 h-4 w-4 ${auScraperLoading ? "animate-spin" : ""}`} />
-              새로고침
-            </Button>
-            <Button
-              size="sm"
-              onClick={runAuScraper}
-              disabled={auScraperRunning}
-            >
-              {auScraperRunning ? (
-                <RefreshCw className="mr-1 h-4 w-4 animate-spin" />
-              ) : (
-                <Play className="mr-1 h-4 w-4" />
-              )}
-              {auScraperRunning ? "실행 중..." : "지금 실행"}
-            </Button>
-          </div>
-        </div>
-
-        <p className="mb-4 text-sm text-t-muted">
-          Audax Australia 퍼머넌트 코스를 자동으로 가져와 세계 코스로 등록합니다.
-          RideWithGPS에서 GPX 파일도 함께 다운로드합니다. 매월 1회 자동 실행됩니다.
-        </p>
-
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-4">
-          <Card>
-            <CardContent className="py-3">
-              <p className="text-xs text-t-muted">상태</p>
-              <div className="mt-1 flex items-center gap-2">
-                <button
-                  onClick={toggleAuScraper}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    auScraperStatus?.enabled ? "bg-sky-blue" : "bg-gray-300"
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      auScraperStatus?.enabled ? "translate-x-6" : "translate-x-1"
-                    }`}
-                  />
-                </button>
-                <span className="text-sm font-medium">
-                  {auScraperStatus?.enabled ? "활성" : "비활성"}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="py-3">
-              <p className="text-xs text-t-muted">AU 코스 수</p>
-              <p className="mt-1 text-lg font-bold">
-                {auScraperStatus?.auCourseCount ?? "—"}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="py-3">
-              <p className="text-xs text-t-muted">마지막 실행</p>
-              <p className="mt-1 text-sm font-medium">
-                {auScraperStatus?.lastScrapeDate
-                  ? new Date(auScraperStatus.lastScrapeDate).toLocaleString("ko-KR")
-                  : "실행 기록 없음"}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="py-3">
-              <p className="text-xs text-t-muted">마지막 결과</p>
-              {auScraperStatus?.lastResult ? (
-                <div className="mt-1 text-xs space-y-0.5">
-                  <p>생성 <strong>{auScraperStatus.lastResult.created}</strong> / 업데이트 <strong>{auScraperStatus.lastResult.updated}</strong></p>
-                  <p>스킵 {auScraperStatus.lastResult.skipped} / 오류 {auScraperStatus.lastResult.errors}</p>
-                </div>
-              ) : (
-                <p className="mt-1 text-sm text-t-muted">—</p>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {auScraperRunResult && (
-          <Card className={`mb-4 ${auScraperRunResult.errors.length > 0 ? "border-sky-orange" : "border-green-300"}`}>
-            <CardContent className="py-3">
-              <div className="flex items-start gap-2">
-                {auScraperRunResult.errors.length > 0 ? (
-                  <AlertTriangle className="h-4 w-4 text-sky-orange mt-0.5 shrink-0" />
-                ) : (
-                  <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
-                )}
-                <div className="text-sm">
-                  <p className="font-medium">
-                    수동 실행 완료: {auScraperRunResult.total}개 발견, {auScraperRunResult.created}개 생성,{" "}
-                    {auScraperRunResult.updated}개 업데이트, {auScraperRunResult.skipped}개 스킵
-                  </p>
-                  {auScraperRunResult.errors.length > 0 && (
-                    <div className="mt-1 text-xs text-t-muted">
-                      {auScraperRunResult.errors.slice(0, 5).map((err, i) => (
-                        <p key={i}>{err}</p>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-
-      {/* Randonneurs.be Scraper Section */}
-      <div className="mt-10">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-bold flex items-center gap-2">
-            <Globe className="h-5 w-5" />
-            Randonneurs.be 퍼머넌트 스크래퍼
-          </h2>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={fetchBeScraperStatus}
-              disabled={beScraperLoading}
-            >
-              <RefreshCw className={`mr-1 h-4 w-4 ${beScraperLoading ? "animate-spin" : ""}`} />
-              새로고침
-            </Button>
-            <Button
-              size="sm"
-              onClick={runBeScraper}
-              disabled={beScraperRunning}
-            >
-              {beScraperRunning ? (
-                <RefreshCw className="mr-1 h-4 w-4 animate-spin" />
-              ) : (
-                <Play className="mr-1 h-4 w-4" />
-              )}
-              {beScraperRunning ? "실행 중..." : "지금 실행"}
-            </Button>
-          </div>
-        </div>
-
-        <p className="mb-4 text-sm text-t-muted">
-          Randonneurs.be 벨기에 퍼머넌트 코스를 자동으로 가져와 세계 코스로 등록합니다.
-          RideWithGPS에서 GPX 파일도 함께 다운로드합니다. 매월 1회 자동 실행됩니다.
-        </p>
-
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-4">
-          <Card>
-            <CardContent className="py-3">
-              <p className="text-xs text-t-muted">상태</p>
-              <div className="mt-1 flex items-center gap-2">
-                <button
-                  onClick={toggleBeScraper}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    beScraperStatus?.enabled ? "bg-sky-blue" : "bg-gray-300"
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      beScraperStatus?.enabled ? "translate-x-6" : "translate-x-1"
-                    }`}
-                  />
-                </button>
-                <span className="text-sm font-medium">
-                  {beScraperStatus?.enabled ? "활성" : "비활성"}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="py-3">
-              <p className="text-xs text-t-muted">BE 코스 수</p>
-              <p className="mt-1 text-lg font-bold">
-                {beScraperStatus?.beCourseCount ?? "—"}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="py-3">
-              <p className="text-xs text-t-muted">마지막 실행</p>
-              <p className="mt-1 text-sm font-medium">
-                {beScraperStatus?.lastScrapeDate
-                  ? new Date(beScraperStatus.lastScrapeDate).toLocaleString("ko-KR")
-                  : "실행 기록 없음"}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="py-3">
-              <p className="text-xs text-t-muted">마지막 결과</p>
-              {beScraperStatus?.lastResult ? (
-                <div className="mt-1 text-xs space-y-0.5">
-                  <p>생성 <strong>{beScraperStatus.lastResult.created}</strong> / 업데이트 <strong>{beScraperStatus.lastResult.updated}</strong></p>
-                  <p>스킵 {beScraperStatus.lastResult.skipped} / 오류 {beScraperStatus.lastResult.errors}</p>
-                </div>
-              ) : (
-                <p className="mt-1 text-sm text-t-muted">—</p>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {beScraperRunResult && (
-          <Card className={`mb-4 ${beScraperRunResult.errors.length > 0 ? "border-sky-orange" : "border-green-300"}`}>
-            <CardContent className="py-3">
-              <div className="flex items-start gap-2">
-                {beScraperRunResult.errors.length > 0 ? (
-                  <AlertTriangle className="h-4 w-4 text-sky-orange mt-0.5 shrink-0" />
-                ) : (
-                  <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
-                )}
-                <div className="text-sm">
-                  <p className="font-medium">
-                    수동 실행 완료: {beScraperRunResult.total}개 발견, {beScraperRunResult.created}개 생성,{" "}
-                    {beScraperRunResult.updated}개 업데이트, {beScraperRunResult.skipped}개 스킵
-                  </p>
-                  {beScraperRunResult.errors.length > 0 && (
-                    <div className="mt-1 text-xs text-t-muted">
-                      {beScraperRunResult.errors.slice(0, 5).map((err, i) => (
-                        <p key={i}>{err}</p>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-
-      {/* BC Randonneurs Scraper Section */}
-      <div className="mt-10">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-bold flex items-center gap-2">
-            <Globe className="h-5 w-5" />
-            BC Randonneurs 퍼머넌트 스크래퍼
-          </h2>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={fetchBcrScraperStatus}
-              disabled={bcrScraperLoading}
-            >
-              <RefreshCw className={`mr-1 h-4 w-4 ${bcrScraperLoading ? "animate-spin" : ""}`} />
-              새로고침
-            </Button>
-            <Button
-              size="sm"
-              onClick={runBcrScraper}
-              disabled={bcrScraperRunning}
-            >
-              {bcrScraperRunning ? (
-                <RefreshCw className="mr-1 h-4 w-4 animate-spin" />
-              ) : (
-                <Play className="mr-1 h-4 w-4" />
-              )}
-              {bcrScraperRunning ? "실행 중..." : "지금 실행"}
-            </Button>
-          </div>
-        </div>
-
-        <p className="mb-4 text-sm text-t-muted">
-          BC Randonneurs (캐나다 브리티시컬럼비아) 퍼머넌트 코스를 자동으로 가져옵니다.
-          GPX 파일이 있는 코스만 동기화합니다. 매월 1회 자동 실행됩니다.
-        </p>
-
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-4">
-          <Card>
-            <CardContent className="py-3">
-              <p className="text-xs text-t-muted">상태</p>
-              <div className="mt-1 flex items-center gap-2">
-                <button
-                  onClick={toggleBcrScraper}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    bcrScraperStatus?.enabled ? "bg-sky-blue" : "bg-gray-300"
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      bcrScraperStatus?.enabled ? "translate-x-6" : "translate-x-1"
-                    }`}
-                  />
-                </button>
-                <span className="text-sm font-medium">
-                  {bcrScraperStatus?.enabled ? "활성" : "비활성"}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="py-3">
-              <p className="text-xs text-t-muted">CA 코스 수</p>
-              <p className="mt-1 text-lg font-bold">
-                {bcrScraperStatus?.bcrCourseCount ?? "—"}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="py-3">
-              <p className="text-xs text-t-muted">마지막 실행</p>
-              <p className="mt-1 text-sm font-medium">
-                {bcrScraperStatus?.lastScrapeDate
-                  ? new Date(bcrScraperStatus.lastScrapeDate).toLocaleString("ko-KR")
-                  : "실행 기록 없음"}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="py-3">
-              <p className="text-xs text-t-muted">마지막 결과</p>
-              {bcrScraperStatus?.lastResult ? (
-                <div className="mt-1 text-xs space-y-0.5">
-                  <p>생성 <strong>{bcrScraperStatus.lastResult.created}</strong> / 업데이트 <strong>{bcrScraperStatus.lastResult.updated}</strong></p>
-                  <p>스킵 {bcrScraperStatus.lastResult.skipped} / 오류 {bcrScraperStatus.lastResult.errors}</p>
-                </div>
-              ) : (
-                <p className="mt-1 text-sm text-t-muted">—</p>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {bcrScraperRunResult && (
-          <Card className={`mb-4 ${bcrScraperRunResult.errors.length > 0 ? "border-sky-orange" : "border-green-300"}`}>
-            <CardContent className="py-3">
-              <div className="flex items-start gap-2">
-                {bcrScraperRunResult.errors.length > 0 ? (
-                  <AlertTriangle className="h-4 w-4 text-sky-orange mt-0.5 shrink-0" />
-                ) : (
-                  <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
-                )}
-                <div className="text-sm">
-                  <p className="font-medium">
-                    수동 실행 완료: {bcrScraperRunResult.total}개 발견, {bcrScraperRunResult.created}개 생성,{" "}
-                    {bcrScraperRunResult.updated}개 업데이트, {bcrScraperRunResult.skipped}개 스킵
-                  </p>
-                  {bcrScraperRunResult.errors.length > 0 && (
-                    <div className="mt-1 text-xs text-t-muted">
-                      {bcrScraperRunResult.errors.slice(0, 5).map((err, i) => (
-                        <p key={i}>{err}</p>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-
-      {/* Ontario Randonneurs Scraper Section */}
-      <div className="mt-10">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-bold flex items-center gap-2">
-            <Globe className="h-5 w-5" />
-            Randonneurs Ontario 스크래퍼
-          </h2>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={fetchOrScraperStatus}
-              disabled={orScraperLoading}
-            >
-              <RefreshCw className={`mr-1 h-4 w-4 ${orScraperLoading ? "animate-spin" : ""}`} />
-              새로고침
-            </Button>
-            <Button
-              size="sm"
-              onClick={runOrScraper}
-              disabled={orScraperRunning}
-            >
-              {orScraperRunning ? (
-                <RefreshCw className="mr-1 h-4 w-4 animate-spin" />
-              ) : (
-                <Play className="mr-1 h-4 w-4" />
-              )}
-              {orScraperRunning ? "실행 중..." : "지금 실행"}
-            </Button>
-          </div>
-        </div>
-
-        <p className="mb-4 text-sm text-t-muted">
-          Randonneurs Ontario (캐나다 온타리오) 4개 챕터(Toronto, Simcoe-Muskoka, Ottawa, Huron)의
-          코스를 RWGPS 및 GPX에서 자동으로 가져옵니다. 매월 1회 자동 실행됩니다.
-        </p>
-
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-4">
-          <Card>
-            <CardContent className="py-3">
-              <p className="text-xs text-t-muted">상태</p>
-              <div className="mt-1 flex items-center gap-2">
-                <button
-                  onClick={toggleOrScraper}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    orScraperStatus?.enabled ? "bg-sky-blue" : "bg-gray-300"
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      orScraperStatus?.enabled ? "translate-x-6" : "translate-x-1"
-                    }`}
-                  />
-                </button>
-                <span className="text-sm font-medium">
-                  {orScraperStatus?.enabled ? "활성" : "비활성"}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="py-3">
-              <p className="text-xs text-t-muted">ON 코스 수</p>
-              <p className="mt-1 text-lg font-bold">
-                {orScraperStatus?.orCourseCount ?? "—"}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="py-3">
-              <p className="text-xs text-t-muted">마지막 실행</p>
-              <p className="mt-1 text-sm font-medium">
-                {orScraperStatus?.lastScrapeDate
-                  ? new Date(orScraperStatus.lastScrapeDate).toLocaleString("ko-KR")
-                  : "실행 기록 없음"}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="py-3">
-              <p className="text-xs text-t-muted">마지막 결과</p>
-              {orScraperStatus?.lastResult ? (
-                <div className="mt-1 text-xs space-y-0.5">
-                  <p>생성 <strong>{orScraperStatus.lastResult.created}</strong> / 업데이트 <strong>{orScraperStatus.lastResult.updated}</strong></p>
-                  <p>스킵 {orScraperStatus.lastResult.skipped} / 오류 {orScraperStatus.lastResult.errors}</p>
-                </div>
-              ) : (
-                <p className="mt-1 text-sm text-t-muted">—</p>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {orScraperRunResult && (
-          <Card className={`mb-4 ${orScraperRunResult.errors.length > 0 ? "border-sky-orange" : "border-green-300"}`}>
-            <CardContent className="py-3">
-              <div className="flex items-start gap-2">
-                {orScraperRunResult.errors.length > 0 ? (
-                  <AlertTriangle className="h-4 w-4 text-sky-orange mt-0.5 shrink-0" />
-                ) : (
-                  <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
-                )}
-                <div className="text-sm">
-                  <p className="font-medium">
-                    수동 실행 완료: {orScraperRunResult.total}개 발견, {orScraperRunResult.created}개 생성,{" "}
-                    {orScraperRunResult.updated}개 업데이트, {orScraperRunResult.skipped}개 스킵
-                  </p>
-                  {orScraperRunResult.errors.length > 0 && (
-                    <div className="mt-1 text-xs text-t-muted">
-                      {orScraperRunResult.errors.slice(0, 5).map((err, i) => (
-                        <p key={i}>{err}</p>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-
-      {/* Alberta Randonneurs Scraper Section */}
-      <div className="mt-10">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-bold flex items-center gap-2">
-            <Globe className="h-5 w-5" />
-            Alberta Randonneurs 스크래퍼
-          </h2>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={fetchAbScraperStatus}
-              disabled={abScraperLoading}
-            >
-              <RefreshCw className={`mr-1 h-4 w-4 ${abScraperLoading ? "animate-spin" : ""}`} />
-              새로고침
-            </Button>
-            <Button
-              size="sm"
-              onClick={runAbScraper}
-              disabled={abScraperRunning}
-            >
-              {abScraperRunning ? (
-                <RefreshCw className="mr-1 h-4 w-4 animate-spin" />
-              ) : (
-                <Play className="mr-1 h-4 w-4" />
-              )}
-              {abScraperRunning ? "실행 중..." : "지금 실행"}
-            </Button>
-          </div>
-        </div>
-
-        <p className="mb-4 text-sm text-t-muted">
-          Alberta Randonneurs (캐나다 앨버타) 퍼머넌트 코스를 자동으로 가져옵니다. 매월 1회 자동 실행됩니다.
-        </p>
-
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-4">
-          <Card>
-            <CardContent className="py-3">
-              <p className="text-xs text-t-muted">상태</p>
-              <div className="mt-1 flex items-center gap-2">
-                <button
-                  onClick={toggleAbScraper}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    abScraperStatus?.enabled ? "bg-sky-blue" : "bg-gray-300"
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      abScraperStatus?.enabled ? "translate-x-6" : "translate-x-1"
-                    }`}
-                  />
-                </button>
-                <span className="text-sm font-medium">
-                  {abScraperStatus?.enabled ? "활성" : "비활성"}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="py-3">
-              <p className="text-xs text-t-muted">AB 코스 수</p>
-              <p className="mt-1 text-lg font-bold">
-                {abScraperStatus?.abCourseCount ?? "—"}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="py-3">
-              <p className="text-xs text-t-muted">마지막 실행</p>
-              <p className="mt-1 text-sm font-medium">
-                {abScraperStatus?.lastScrapeDate
-                  ? new Date(abScraperStatus.lastScrapeDate).toLocaleString("ko-KR")
-                  : "실행 기록 없음"}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="py-3">
-              <p className="text-xs text-t-muted">마지막 결과</p>
-              {abScraperStatus?.lastResult ? (
-                <div className="mt-1 text-xs space-y-0.5">
-                  <p>생성 <strong>{abScraperStatus.lastResult.created}</strong> / 업데이트 <strong>{abScraperStatus.lastResult.updated}</strong></p>
-                  <p>스킵 {abScraperStatus.lastResult.skipped} / 오류 {abScraperStatus.lastResult.errors}</p>
-                </div>
-              ) : (
-                <p className="mt-1 text-sm text-t-muted">—</p>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {abScraperRunResult && (
-          <Card className={`mb-4 ${abScraperRunResult.errors.length > 0 ? "border-sky-orange" : "border-green-300"}`}>
-            <CardContent className="py-3">
-              <div className="flex items-start gap-2">
-                {abScraperRunResult.errors.length > 0 ? (
-                  <AlertTriangle className="h-4 w-4 text-sky-orange mt-0.5 shrink-0" />
-                ) : (
-                  <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
-                )}
-                <div className="text-sm">
-                  <p className="font-medium">
-                    수동 실행 완료: {abScraperRunResult.total}개 발견, {abScraperRunResult.created}개 생성,{" "}
-                    {abScraperRunResult.updated}개 업데이트, {abScraperRunResult.skipped}개 스킵
-                  </p>
-                  {abScraperRunResult.errors.length > 0 && (
-                    <div className="mt-1 text-xs text-t-muted">
-                      {abScraperRunResult.errors.slice(0, 5).map((err, i) => (
-                        <p key={i}>{err}</p>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-
-      {/* KORA Permanents Scraper Section */}
-      <div className="mt-10">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-bold flex items-center gap-2">
-            <Bike className="h-5 w-5" />
-            한국 퍼머넌트 스크래퍼
-          </h2>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={fetchKrPermScraperStatus}
-              disabled={krPermScraperLoading}
-            >
-              <RefreshCw className={`mr-1 h-4 w-4 ${krPermScraperLoading ? "animate-spin" : ""}`} />
-              새로고침
-            </Button>
-            <Button
-              size="sm"
-              onClick={runKrPermScraper}
-              disabled={krPermScraperRunning}
-            >
-              {krPermScraperRunning ? (
-                <RefreshCw className="mr-1 h-4 w-4 animate-spin" />
-              ) : (
-                <Play className="mr-1 h-4 w-4" />
-              )}
-              {krPermScraperRunning ? "실행 중..." : "지금 실행"}
-            </Button>
-          </div>
-        </div>
-
-        <p className="mb-4 text-sm text-t-muted">
-          한국 란도너스 웹사이트에서 퍼머넌트 코스 정보와 GPX를 자동으로 가져옵니다.
-          RideWithGPS에서 경로 데이터도 함께 다운로드합니다. 매월 1회 자동 실행됩니다.
-        </p>
-
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-4">
-          <Card>
-            <CardContent className="py-3">
-              <p className="text-xs text-t-muted">상태</p>
-              <div className="mt-1 flex items-center gap-2">
-                <button
-                  onClick={toggleKrPermScraper}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    krPermScraperStatus?.enabled ? "bg-sky-blue" : "bg-gray-300"
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      krPermScraperStatus?.enabled ? "translate-x-6" : "translate-x-1"
-                    }`}
-                  />
-                </button>
-                <span className="text-sm font-medium">
-                  {krPermScraperStatus?.enabled ? "활성" : "비활성"}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="py-3">
-              <p className="text-xs text-t-muted">KR 코스 수</p>
-              <p className="mt-1 text-lg font-bold">
-                {krPermScraperStatus?.krCourseCount ?? "—"}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="py-3">
-              <p className="text-xs text-t-muted">마지막 실행</p>
-              <p className="mt-1 text-sm font-medium">
-                {krPermScraperStatus?.lastScrapeDate
-                  ? new Date(krPermScraperStatus.lastScrapeDate).toLocaleString("ko-KR")
-                  : "실행 기록 없음"}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="py-3">
-              <p className="text-xs text-t-muted">마지막 결과</p>
-              {krPermScraperStatus?.lastResult ? (
-                <div className="mt-1 text-xs space-y-0.5">
-                  <p>생성 <strong>{krPermScraperStatus.lastResult.created}</strong> / 업데이트 <strong>{krPermScraperStatus.lastResult.updated}</strong></p>
-                  <p>스킵 {krPermScraperStatus.lastResult.skipped} / 오류 {krPermScraperStatus.lastResult.errors}</p>
-                </div>
-              ) : (
-                <p className="mt-1 text-sm text-t-muted">—</p>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {krPermScraperRunResult && (
-          <Card className={`mb-4 ${krPermScraperRunResult.errors.length > 0 ? "border-sky-orange" : "border-green-300"}`}>
-            <CardContent className="py-3">
-              <div className="flex items-start gap-2">
-                {krPermScraperRunResult.errors.length > 0 ? (
-                  <AlertTriangle className="h-4 w-4 text-sky-orange mt-0.5 shrink-0" />
-                ) : (
-                  <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
-                )}
-                <div className="text-sm">
-                  <p className="font-medium">
-                    수동 실행 완료: {krPermScraperRunResult.total}개 발견, {krPermScraperRunResult.created}개 생성,{" "}
-                    {krPermScraperRunResult.updated}개 업데이트, {krPermScraperRunResult.skipped}개 스킵
-                  </p>
-                  {krPermScraperRunResult.errors.length > 0 && (
-                    <div className="mt-1 text-xs text-t-muted">
-                      {krPermScraperRunResult.errors.slice(0, 5).map((err, i) => (
-                        <p key={i}>{err}</p>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-      </div>
+      {/* All Scraper Sections */}
+      {SCRAPER_CONFIGS.map((config) => (
+        <ScraperSection key={config.id} config={config} />
+      ))}
 
       {/* Backup Management Section */}
       <div className="mt-10">

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireActiveUser } from "@/lib/user-guard";
+import { sanitizeHtml } from "@/lib/sanitize";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -9,7 +10,7 @@ export async function GET(request: NextRequest) {
   const from = searchParams.get("from"); // date string
   const to = searchParams.get("to"); // date string
   const limit = Math.min(parseInt(searchParams.get("limit") ?? "20"), 50);
-  const offset = parseInt(searchParams.get("offset") ?? "0");
+  const offset = Math.max(0, parseInt(searchParams.get("offset") ?? "0") || 0);
 
   const where: Record<string, unknown> = {};
 
@@ -109,7 +110,7 @@ export async function POST(request: NextRequest) {
     data: {
       userId: user!.id,
       title: title.trim(),
-      description: description?.trim() || null,
+      description: description ? sanitizeHtml(description.trim()) : null,
       rideDate: parsedDate,
       courseId: courseId || null,
       meetingPoint: meetingPoint?.trim() || null,

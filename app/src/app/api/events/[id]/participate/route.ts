@@ -40,21 +40,38 @@ export async function POST(
     return NextResponse.json({ status: "cancelled" });
   }
 
-  // Check maxParticipants limit for 'going' status
+  // Check maxParticipants limit for 'going' status (race-safe via transaction)
   if (status === "going" && event.maxParticipants) {
-    const currentGoing = event.participants.length;
-    // Check if user is already going (not counted again)
-    const existingParticipant = await prisma.eventParticipant.findUnique({
-      where: { eventId_userId: { eventId, userId: user!.id } },
-    });
-    const isAlreadyGoing = existingParticipant?.status === "going";
+    const result = await prisma.$transaction(async (tx) => {
+      const goingCount = await tx.eventParticipant.count({
+        where: { eventId, status: "going" },
+      });
+      const existingParticipant = await tx.eventParticipant.findUnique({
+        where: { eventId_userId: { eventId, userId: user!.id } },
+      });
+      const isAlreadyGoing = existingParticipant?.status === "going";
 
-    if (!isAlreadyGoing && currentGoing >= event.maxParticipants) {
+      if (!isAlreadyGoing && goingCount >= event.maxParticipants!) {
+        return null; // capacity reached
+      }
+
+      return tx.eventParticipant.upsert({
+        where: { eventId_userId: { eventId, userId: user!.id } },
+        update: { status },
+        create: { eventId, userId: user!.id, status },
+        include: {
+          user: { select: { id: true, displayName: true, avatarKey: true } },
+        },
+      });
+    });
+
+    if (!result) {
       return NextResponse.json({ error: "이벤트 참가 인원이 마감되었습니다." }, { status: 400 });
     }
+    return NextResponse.json(result);
   }
 
-  // Upsert participation
+  // Upsert participation (no capacity limit)
   const participant = await prisma.eventParticipant.upsert({
     where: { eventId_userId: { eventId, userId: user!.id } },
     update: { status },

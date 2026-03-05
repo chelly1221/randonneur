@@ -1,34 +1,31 @@
 import { prisma } from "@/lib/db";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CourseCard } from "@/components/course/course-card";
 import { PopularCourses } from "@/components/course/popular-courses";
 import { CourseRecommendations } from "@/components/course/course-recommendations";
-import { Bike, Map, Mountain, Users } from "lucide-react";
 import Link from "next/link";
+
+import GlobalStats from "@/components/home/global-stats";
+import MySummary from "@/components/home/my-summary";
+import HomeCharts from "@/components/home/home-charts";
+import CountryDistribution from "@/components/home/country-distribution";
+import UpcomingEvents from "@/components/home/upcoming-events";
+import ActivePolls from "@/components/home/active-polls";
+import RecentCompletionsFeed from "@/components/home/recent-completions-feed";
+import RecentReviewsHome from "@/components/home/recent-reviews-home";
+import FollowingFeed from "@/components/home/following-feed";
+import CountrySpotlight from "@/components/home/country-spotlight";
+import BeginnerCourses from "@/components/home/beginner-courses";
+import GalleryCarousel from "@/components/home/gallery-carousel";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [courseCount, totalDistanceResult, recentCourses, completionCount] =
-    await Promise.all([
-      prisma.course.count(),
-      prisma.course.aggregate({ _sum: { distanceKm: true } }),
-      prisma.course.findMany({
-        orderBy: { createdAt: "desc" },
-        take: 6,
-      }),
-      prisma.completion.count(),
-    ]);
-
-  const totalDistance = Math.round(totalDistanceResult._sum.distanceKm ?? 0);
-
-  const stats = [
-    { icon: Bike, label: "등록 코스", value: courseCount },
-    { icon: Map, label: "총 거리", value: `${totalDistance.toLocaleString()} km` },
-    { icon: Mountain, label: "지역", value: "7개 지역" },
-    { icon: Users, label: "완주 기록", value: completionCount },
-  ];
+  const recentCourses = await prisma.course.findMany({
+    where: { country: "KR" },
+    orderBy: { createdAt: "desc" },
+    take: 6,
+  });
 
   return (
     <div>
@@ -47,55 +44,88 @@ export default async function HomePage() {
             <Link href="/courses">
               <Button size="lg" className="bg-t-accent text-white hover:bg-t-accent-x">코스 둘러보기</Button>
             </Link>
-            <Link href="/courses">
+            <Link href="/courses/world">
               <Button variant="outline" size="lg" className="border-white/40 text-white backdrop-blur-sm bg-black/10 hover:bg-black/20">
-                지도에서 보기
+                세계 코스 보기
               </Button>
             </Link>
           </div>
         </div>
       </section>
 
-      {/* Stats */}
+      {/* Global Stats — animated counters */}
       <section className="mx-auto max-w-7xl px-4 -mt-8">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {stats.map((stat) => (
-            <Card key={stat.label}>
-              <CardContent className="flex items-center gap-4">
-                <div className="rounded-lg bg-t-subtle p-3">
-                  <stat.icon className="h-6 w-6 text-t-icon" />
-                </div>
-                <div>
-                  <p className="text-sm text-t-muted">{stat.label}</p>
-                  <p className="text-2xl font-bold">{stat.value}</p>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+        <GlobalStats />
+      </section>
+
+      {/* My Summary — personal dashboard (logged-in) or CTA */}
+      <section className="mx-auto max-w-7xl px-4 pt-8">
+        <MySummary />
+      </section>
+
+      {/* Country Spotlight + Country Distribution — side by side */}
+      <section className="mx-auto max-w-7xl px-4 py-10">
+        <div className="grid gap-6 lg:grid-cols-2">
+          <CountrySpotlight />
+          <CountryDistribution />
         </div>
       </section>
 
-      {/* Popular courses */}
-      <section className="mx-auto max-w-7xl px-4 py-12">
+      {/* Distance Distribution — full width */}
+      <section className="mx-auto max-w-7xl px-4 pb-10">
+        <HomeCharts />
+      </section>
+
+      {/* Popular courses — KR only */}
+      <section className="mx-auto max-w-7xl px-4 pb-10">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-xl font-bold">인기 코스</h2>
         </div>
-        <PopularCourses />
+        <PopularCourses country="KR" />
       </section>
 
-      {/* Recommendations */}
-      <section className="mx-auto max-w-7xl px-4 pb-12">
+      {/* Beginner recommended courses — KR only */}
+      <section className="mx-auto max-w-7xl px-4 pb-10">
+        <BeginnerCourses country="KR" />
+      </section>
+
+      {/* Course Recommendations — KR only */}
+      <section className="mx-auto max-w-7xl px-4 pb-10">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-xl font-bold">추천 코스</h2>
         </div>
-        <CourseRecommendations />
+        <CourseRecommendations country="KR" />
       </section>
 
-      {/* Recent courses */}
+      {/* Community Section — Reviews, Completions, Events, Polls, Following — KR only */}
+      <section className="mx-auto max-w-7xl px-4 pb-10">
+        <h2 className="text-xl font-bold mb-6">커뮤니티</h2>
+        <div className="grid gap-6 lg:grid-cols-5">
+          {/* Left column — Reviews + Completions */}
+          <div className="lg:col-span-3 space-y-6">
+            <RecentReviewsHome country="KR" />
+            <RecentCompletionsFeed country="KR" />
+          </div>
+
+          {/* Right column — Events + Polls + Following */}
+          <div className="lg:col-span-2 space-y-6">
+            <UpcomingEvents country="Korea" />
+            <ActivePolls />
+            <FollowingFeed />
+          </div>
+        </div>
+      </section>
+
+      {/* Gallery Carousel */}
+      <section className="mx-auto max-w-7xl px-4 pb-10">
+        <GalleryCarousel />
+      </section>
+
+      {/* Recent courses — KR only */}
       {recentCourses.length > 0 && (
         <section className="mx-auto max-w-7xl px-4 pb-12">
           <div className="mb-6 flex items-center justify-between">
-            <h2 className="text-xl font-bold">최근 코스</h2>
+            <h2 className="text-xl font-bold">최근 등록 코스</h2>
             <Link
               href="/courses"
               className="text-sm text-t-accent hover:text-t-accent-x"

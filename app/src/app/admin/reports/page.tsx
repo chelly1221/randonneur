@@ -133,7 +133,7 @@ export default function AdminReportsPage() {
                       ? `댓글: ${report.comment.user.displayName}`
                       : "-"}
                   </span>
-                  <span className="text-xs text-t-muted">by {report.reporter.displayName}</span>
+                  <span className="text-xs text-t-muted">신고자: {report.reporter.displayName}</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <Badge variant={STATUS_VARIANT[report.status] ?? "default"}>

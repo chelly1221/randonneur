@@ -5,19 +5,20 @@ import { auth } from "@/lib/auth";
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const limit = Math.min(parseInt(searchParams.get("limit") ?? "6"), 20);
+  const country = searchParams.get("country");
 
   const session = await auth();
 
   // If not logged in, return popular courses
   if (!session?.user?.id) {
-    return returnPopular(limit);
+    return returnPopular(limit, country);
   }
 
   const user = await prisma.user.findUnique({
     where: { keycloakId: session.user.id },
   });
   if (!user) {
-    return returnPopular(limit);
+    return returnPopular(limit, country);
   }
 
   // Get user's completed and favorited courses with preferences
@@ -42,7 +43,7 @@ export async function GET(request: NextRequest) {
 
   // For new users with no activity, return popular courses
   if (completedIds.length === 0 && favoritedIds.length === 0) {
-    return returnPopular(limit);
+    return returnPopular(limit, country);
   }
 
   // Gather region and distance preferences from completions + favorites
@@ -66,6 +67,7 @@ export async function GET(request: NextRequest) {
   const results = await prisma.$queryRaw<
     {
       id: string;
+      slug: string;
       name: string;
       distance_km: number;
       elevation_m: number;
@@ -75,7 +77,7 @@ export async function GET(request: NextRequest) {
       category: string[];
     }[]
   >`
-    SELECT c.id, c.name, c.distance_km, c.elevation_m,
+    SELECT c.id, c.slug, c.name, c.distance_km, c.elevation_m,
            c.start_location, c.end_location, c.region, c.category,
            (
              CASE WHEN c.region = ANY(${preferredRegions}::text[]) THEN 3 ELSE 0 END +
@@ -85,6 +87,7 @@ export async function GET(request: NextRequest) {
     FROM courses c
     WHERE c.archived = false
       AND c.id != ALL(${excludeIds}::uuid[])
+      AND (${country}::text IS NULL OR c.country = ${country})
     ORDER BY score DESC, c.created_at DESC
     LIMIT ${limit}
   `;
@@ -92,6 +95,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json(
     results.map((r) => ({
       id: r.id,
+      slug: r.slug,
       name: r.name,
       distanceKm: r.distance_km,
       elevationM: r.elevation_m,
@@ -103,10 +107,11 @@ export async function GET(request: NextRequest) {
   );
 }
 
-async function returnPopular(limit: number) {
+async function returnPopular(limit: number, country: string | null) {
   const results = await prisma.$queryRaw<
     {
       id: string;
+      slug: string;
       name: string;
       distance_km: number;
       elevation_m: number;
@@ -116,7 +121,7 @@ async function returnPopular(limit: number) {
       category: string[];
     }[]
   >`
-    SELECT c.id, c.name, c.distance_km, c.elevation_m,
+    SELECT c.id, c.slug, c.name, c.distance_km, c.elevation_m,
            c.start_location, c.end_location, c.region, c.category,
            (
              COALESCE((SELECT COUNT(*) FROM completions WHERE course_id = c.id), 0) * 3 +
@@ -124,6 +129,7 @@ async function returnPopular(limit: number) {
            )::int as score
     FROM courses c
     WHERE c.archived = false
+      AND (${country}::text IS NULL OR c.country = ${country})
     ORDER BY score DESC, c.created_at DESC
     LIMIT ${limit}
   `;
@@ -131,6 +137,7 @@ async function returnPopular(limit: number) {
   return NextResponse.json(
     results.map((r) => ({
       id: r.id,
+      slug: r.slug,
       name: r.name,
       distanceKm: r.distance_km,
       elevationM: r.elevation_m,

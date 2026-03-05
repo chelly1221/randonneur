@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { CourseDetailClient } from "@/components/course/course-detail-client";
 import { Badge } from "@/components/ui/badge";
@@ -23,14 +23,33 @@ import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function findCourseBySlugOrUuid(slugOrId: string) {
+  // Try slug first
+  const bySlug = await prisma.course.findUnique({ where: { slug: slugOrId } });
+  if (bySlug) return { course: bySlug, isUuid: false };
+
+  // If it looks like a UUID, try to find by id and redirect
+  if (UUID_RE.test(slugOrId)) {
+    const byId = await prisma.course.findUnique({
+      where: { id: slugOrId },
+      select: { slug: true },
+    });
+    if (byId) return { course: null, isUuid: true, redirectSlug: byId.slug };
+  }
+
+  return { course: null, isUuid: false };
+}
+
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
-  const { id } = await params;
+  const { slug } = await params;
   const course = await prisma.course.findUnique({
-    where: { id },
+    where: { slug },
     select: { name: true, distanceKm: true, elevationM: true, region: true, startLocation: true },
   });
 
@@ -72,25 +91,33 @@ function buildOfficialPageUrl(courseNumber: string | null | undefined): string |
 }
 
 interface Props {
-  params: Promise<{ id: string }>;
+  params: Promise<{ slug: string }>;
 }
 
 export default async function CourseDetailPage({ params }: Props) {
-  const { id } = await params;
+  const { slug } = await params;
 
-  const [course, checkpoints, geoResult] = await Promise.all([
-    prisma.course.findUnique({ where: { id } }),
+  const result = await findCourseBySlugOrUuid(slug);
+
+  // UUID redirect: 301 permanent redirect to slug URL
+  if (result.isUuid && result.redirectSlug) {
+    redirect(`/courses/${result.redirectSlug}`);
+  }
+
+  if (!result.course) notFound();
+
+  const course = result.course;
+
+  const [checkpoints, geoResult] = await Promise.all([
     prisma.checkpoint.findMany({
-      where: { courseId: id },
+      where: { courseId: course.id },
       orderBy: { distanceKm: "asc" },
     }),
     prisma.$queryRawUnsafe<{ geojson: string }[]>(
       `SELECT ST_AsGeoJSON(geom) as geojson FROM courses WHERE id = $1::uuid`,
-      id
+      course.id
     ),
   ]);
-
-  if (!course) notFound();
 
   let geojsonParsed: GeoJSON.FeatureCollection | null = null;
   let bounds: { minLat: number; maxLat: number; minLng: number; maxLng: number } | null = null;
@@ -152,9 +179,6 @@ export default async function CourseDetailPage({ params }: Props) {
           ))}
         </div>
         <div className="flex items-center gap-2">
-          <ShareButton courseId={id} courseName={course.name} courseDistance={course.distanceKm} />
-          <FavoriteButton courseId={id} />
-          <CompletionForm courseId={id} />
           {course.gpxFileKey && (
             <a href={`/api/courses/${course.id}/gpx`}>
               <Button variant="outline" size="sm">
@@ -163,11 +187,13 @@ export default async function CourseDetailPage({ params }: Props) {
               </Button>
             </a>
           )}
+          <FavoriteButton courseId={course.id} />
+          <CompletionForm courseId={course.id} />
+          <ShareButton courseSlug={course.slug} courseName={course.name} courseDistance={course.distanceKm} />
           {officialPageUrl && !course.archived && (
             <a href={officialPageUrl} target="_blank" rel="noopener noreferrer">
               <Button variant="outline" size="sm">
-                <ExternalLink className="mr-1 h-4 w-4" />
-                공식 페이지
+                <ExternalLink className="h-4 w-4" />
               </Button>
             </a>
           )}

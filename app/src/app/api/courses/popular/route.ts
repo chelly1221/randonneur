@@ -4,11 +4,13 @@ import { prisma } from "@/lib/db";
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const limit = Math.min(parseInt(searchParams.get("limit") ?? "6"), 20);
+  const country = searchParams.get("country");
 
   // Score = completions*3 + favorites*2 + reviews*1
   const results = await prisma.$queryRaw<
     {
       id: string;
+      slug: string;
       name: string;
       distance_km: number;
       elevation_m: number;
@@ -18,7 +20,7 @@ export async function GET(request: NextRequest) {
       score: number;
     }[]
   >`
-    SELECT c.id, c.name, c.distance_km, c.elevation_m,
+    SELECT c.id, c.slug, c.name, c.distance_km, c.elevation_m,
            c.start_location, c.end_location, c.region,
            (
              COALESCE((SELECT COUNT(*) FROM completions WHERE course_id = c.id), 0) * 3 +
@@ -27,6 +29,7 @@ export async function GET(request: NextRequest) {
            )::int as score
     FROM courses c
     WHERE c.archived = false
+      AND (${country}::text IS NULL OR c.country = ${country})
     ORDER BY score DESC, c.created_at DESC
     LIMIT ${limit}
   `;
@@ -34,6 +37,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json(
     results.map((r) => ({
       id: r.id,
+      slug: r.slug,
       name: r.name,
       distanceKm: r.distance_km,
       elevationM: r.elevation_m,

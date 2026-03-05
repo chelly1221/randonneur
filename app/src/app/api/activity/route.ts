@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
           select: { id: true, displayName: true, avatarKey: true },
         },
         course: {
-          select: { id: true, name: true, distanceKm: true, region: true },
+          select: { id: true, slug: true, name: true, distanceKm: true, region: true },
         },
       },
     }),
@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
           select: { id: true, displayName: true, avatarKey: true },
         },
         course: {
-          select: { id: true, name: true, distanceKm: true, region: true },
+          select: { id: true, slug: true, name: true, distanceKm: true, region: true },
         },
       },
     }),

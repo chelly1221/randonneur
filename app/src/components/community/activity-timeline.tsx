@@ -13,6 +13,7 @@ interface ActivityEntry {
   user: { id: string; displayName: string; avatarKey: string | null };
   course: {
     id: string;
+    slug: string;
     name: string;
     distanceKm: number;
     region: string | null;
@@ -122,7 +123,7 @@ export function ActivityTimeline() {
               <span className="text-t-faint shrink-0">
                 {a.type === "completion" ? "완주" : "후기"}
               </span>
-              <Link href={`/courses/${a.course.id}`} className="text-sky-blue hover:underline truncate min-w-0">
+              <Link href={`/courses/${a.course.slug}`} className="text-sky-blue hover:underline truncate min-w-0">
                 {a.course.name}
               </Link>
               <span className="ml-auto text-[9px] text-t-faint whitespace-nowrap shrink-0">

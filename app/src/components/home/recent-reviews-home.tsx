@@ -11,7 +11,7 @@ interface ReviewEntry {
   content: string;
   createdAt: string;
   user: { id: string; displayName: string; avatarKey?: string };
-  course: { id: string; name: string; distanceKm: number; region: string };
+  course: { id: string; slug: string; name: string; distanceKm: number; region: string };
   _count: { comments: number; likes: number };
 }
 
@@ -54,13 +54,16 @@ export default function RecentReviewsHome({ country }: { country?: string } = {}
 
   useEffect(() => {
     fetch(`/api/community/recent-reviews?limit=6${country ? `&country=${country}` : ""}`)
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error("fetch failed");
+        return res.json();
+      })
       .then((data) => {
-        setReviews(data);
+        if (Array.isArray(data)) setReviews(data);
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, []);
+  }, [country]);
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -115,7 +118,7 @@ export default function RecentReviewsHome({ country }: { country?: string } = {}
               </div>
               <div className="mt-0.5">
                 <Link
-                  href={`/courses/${r.course.id}`}
+                  href={`/courses/${r.course.slug}`}
                   className="text-[11px] text-sky-blue truncate block hover:underline"
                 >
                   {r.course.name}

@@ -5,7 +5,7 @@ import { requireActiveUser } from "@/lib/user-guard";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const limit = Math.min(parseInt(searchParams.get("limit") ?? "20"), 50);
+  const limit = Math.min(Math.max(1, parseInt(searchParams.get("limit") ?? "20") || 20), 50);
   const includeEnded = searchParams.get("includeEnded") === "true";
 
   // Get current user for vote info

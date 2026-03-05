@@ -32,6 +32,8 @@ interface ValhallaRouteResponse {
 export async function getRoute(
   locations: ValhallaLocation[]
 ): Promise<ValhallaRouteResponse> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30000);
   const response = await fetch(`${VALHALLA_URL}/route`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -41,7 +43,9 @@ export async function getRoute(
       units: "kilometers",
       language: "ko-KR",
     }),
+    signal: controller.signal,
   });
+  clearTimeout(timeout);
 
   if (!response.ok) {
     throw new Error(`Valhalla route error: ${response.statusText}`);
@@ -53,6 +57,8 @@ export async function getRoute(
 export async function traceRoute(
   shape: { lat: number; lon: number }[]
 ): Promise<ValhallaRouteResponse> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30000);
   const response = await fetch(`${VALHALLA_URL}/trace_route`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -63,7 +69,9 @@ export async function traceRoute(
       units: "kilometers",
       language: "ko-KR",
     }),
+    signal: controller.signal,
   });
+  clearTimeout(timeout);
 
   if (!response.ok) {
     throw new Error(`Valhalla trace error: ${response.statusText}`);

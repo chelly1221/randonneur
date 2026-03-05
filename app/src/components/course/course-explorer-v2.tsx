@@ -17,40 +17,48 @@ import {
   ArrowRight,
   Download,
   Layers,
+  Locate,
+  Compass,
 } from "lucide-react";
 import { ElevationProfile } from "@/components/course/elevation-profile";
+import { CheckpointPopup } from "@/components/course/checkpoint-popup";
 import { CourseInlineDetail, type DetailData } from "@/components/course/course-inline-detail";
-import { interpolatePointOnLine } from "@/lib/geo-utils";
+import { interpolatePointOnLine, closestPointOnLine } from "@/lib/geo-utils";
 
 const MAP_TILES = [
   {
     id: "osm",
     label: "일반",
     tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+    preview: "/tiles/osm.png",
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
   },
   {
     id: "topo",
     label: "지형",
     tiles: ["https://tile.opentopomap.org/{z}/{x}/{y}.png"],
+    preview: "/tiles/topo.png",
     attribution: '&copy; <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)',
   },
   {
     id: "light",
     label: "밝은",
     tiles: ["https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png"],
+    preview: "/tiles/light.png",
     attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
   },
   {
     id: "dark",
     label: "어두운",
     tiles: ["https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png"],
+    preview: "/tiles/dark.png",
     attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
   },
 ] as const;
 
 interface CourseData {
   id: string;
+  slug: string;
   name: string;
   distanceKm: number;
   elevationM: number;
@@ -119,6 +127,7 @@ export function CourseExplorer({
   const [region, setRegion] = useState("");
   const [category, setCategory] = useState("");
   const [sortBy, setSortBy] = useState<"number" | "distance" | "elevation" | "name">("number");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [regionMenuOpen, setRegionMenuOpen] = useState(false);
   const [seriesMenuOpen, setSeriesMenuOpen] = useState(false);
   const [distFilter, setDistFilter] = useState<[number, number]>(distanceRange);
@@ -135,11 +144,19 @@ export function CourseExplorer({
   const handleToggleMap = useCallback(() => setMapCollapsed(v => !v), []);
   const [detailData, setDetailData] = useState<DetailData | null>(null);
   const [hoverPoint, setHoverPoint] = useState<[number, number] | null>(null);
+  const [selectedCp, setSelectedCp] = useState<{ name: string; index: number; lngLat: [number, number]; imageKey?: string | null } | null>(null);
   const detailMarkersRef = useRef<maplibregl.Marker[]>([]);
   const hoverMarkerRef = useRef<maplibregl.Marker | null>(null);
   const [mobileDetailHeight, setMobileDetailHeight] = useState<number>(0);
   const detailCacheRef = useRef<Map<string, DetailData>>(new Map());
   const detailFetchRef = useRef<Map<string, Promise<DetailData | null>>>(new Map());
+
+  // Geolocation
+  const [geoActive, setGeoActive] = useState(false);
+  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
+  const geoWatchRef = useRef<number | null>(null);
+  const userMarkerRef = useRef<maplibregl.Marker | null>(null);
+  const closestMarkerRef = useRef<maplibregl.Marker | null>(null);
 
   // Map style
   const [mapTileId, setMapTileId] = useState("osm");
@@ -175,17 +192,19 @@ export function CourseExplorer({
       return Number.parseInt(matched[0], 10);
     };
 
+    const dir = sortOrder === "asc" ? 1 : -1;
+
     return [...filtered].sort((a, b) => {
       if (sortBy === "distance") {
-        if (a.distanceKm !== b.distanceKm) return a.distanceKm - b.distanceKm;
-        return a.name.localeCompare(b.name, "ko");
+        if (a.distanceKm !== b.distanceKm) return (a.distanceKm - b.distanceKm) * dir;
+        return a.name.localeCompare(b.name, "ko") * dir;
       }
       if (sortBy === "elevation") {
-        if (a.elevationM !== b.elevationM) return a.elevationM - b.elevationM;
-        return a.name.localeCompare(b.name, "ko");
+        if (a.elevationM !== b.elevationM) return (a.elevationM - b.elevationM) * dir;
+        return a.name.localeCompare(b.name, "ko") * dir;
       }
       if (sortBy === "name") {
-        return a.name.localeCompare(b.name, "ko");
+        return a.name.localeCompare(b.name, "ko") * dir;
       }
 
       const aIsSr = !!a.courseNumber && /^SR-/i.test(a.courseNumber);
@@ -194,10 +213,10 @@ export function CourseExplorer({
 
       const aNum = parseCourseNumber(a.courseNumber);
       const bNum = parseCourseNumber(b.courseNumber);
-      if (aNum !== bNum) return aNum - bNum;
-      return a.name.localeCompare(b.name, "ko");
+      if (aNum !== bNum) return (aNum - bNum) * dir;
+      return a.name.localeCompare(b.name, "ko") * dir;
     });
-  }, [filtered, sortBy]);
+  }, [filtered, sortBy, sortOrder]);
 
   const filteredIdKey = filtered.map((c) => c.id).join(",");
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -282,6 +301,7 @@ export function CourseExplorer({
     if (!selectedId) {
       setDetailData(null);
       setHoverPoint(null);
+      setSelectedCp(null);
       setMobileDetailHeight(0);
       setMapCollapsed(false);
     }
@@ -360,6 +380,18 @@ export function CourseExplorer({
     [detailData?.geojson]
   );
 
+  // Elevation chart CP click → open popup
+  const handleCheckpointClick = useCallback(
+    (cp: { id: string; name: string; distanceKm: number; imageKey?: string | null }, index: number) => {
+      if (!detailData?.geojson) return;
+      const point = interpolatePointOnLine(detailData.geojson, cp.distanceKm);
+      if (point) {
+        setSelectedCp({ name: cp.name, index, lngLat: point, imageKey: cp.imageKey });
+      }
+    },
+    [detailData?.geojson]
+  );
+
   // Initialize map
   useEffect(() => {
     if (!mapContainerRef.current) return;
@@ -385,7 +417,6 @@ export function CourseExplorer({
     });
 
     map.addControl(new maplibregl.AttributionControl({ compact: true }));
-    map.addControl(new maplibregl.NavigationControl(), "top-right");
     map.addControl(
       new maplibregl.FullscreenControl({ container: mapWrapperRef.current! }),
       "top-right",
@@ -518,6 +549,10 @@ export function CourseExplorer({
     return () => {
       mapReadyRef.current = false;
       mapRef.current = null;
+      userMarkerRef.current?.remove();
+      userMarkerRef.current = null;
+      closestMarkerRef.current?.remove();
+      closestMarkerRef.current = null;
       map.remove();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -775,6 +810,10 @@ export function CourseExplorer({
         el.style.cssText =
           "width:20px;height:20px;border-radius:50%;background:#facc15;border:2px solid #111;box-shadow:0 1px 4px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:bold;color:#111;cursor:pointer;";
         el.textContent = String(i + 1);
+        el.addEventListener("click", (e) => {
+          e.stopPropagation();
+          setSelectedCp({ name: cp.name, index: i, lngLat: point, imageKey: cp.imageKey });
+        });
 
         const marker = new maplibregl.Marker({ element: el })
           .setLngLat(point)
@@ -828,6 +867,99 @@ export function CourseExplorer({
       hoverMarkerRef.current.setLngLat(hoverPoint);
     }
   }, [hoverPoint]);
+
+  // Geolocation: start/stop watching
+  const startGeo = useCallback(() => {
+    if (!navigator.geolocation) return;
+    setGeoActive(true);
+    geoWatchRef.current = navigator.geolocation.watchPosition(
+      (pos) => setUserLocation([pos.coords.longitude, pos.coords.latitude]),
+      () => {},
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 },
+    );
+  }, []);
+
+  const stopGeo = useCallback(() => {
+    if (geoWatchRef.current !== null) {
+      navigator.geolocation.clearWatch(geoWatchRef.current);
+      geoWatchRef.current = null;
+    }
+    setGeoActive(false);
+    setUserLocation(null);
+  }, []);
+
+  // Auto-start geolocation on mount
+  useEffect(() => {
+    if (navigator.geolocation) {
+      setGeoActive(true);
+      geoWatchRef.current = navigator.geolocation.watchPosition(
+        (pos) => setUserLocation([pos.coords.longitude, pos.coords.latitude]),
+        () => setGeoActive(false),
+        { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 },
+      );
+    }
+    return () => {
+      if (geoWatchRef.current !== null) {
+        navigator.geolocation.clearWatch(geoWatchRef.current);
+      }
+    };
+  }, []);
+
+  // Compute closest point on selected course
+  const closestInfo = useMemo(() => {
+    if (!userLocation || !detailData?.geojson) return null;
+    return closestPointOnLine(detailData.geojson, {
+      lng: userLocation[0],
+      lat: userLocation[1],
+    });
+  }, [userLocation, detailData?.geojson]);
+
+  const currentDistanceKm = closestInfo?.distanceAlongKm ?? null;
+
+  // User location marker (blue pulsing)
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    if (userLocation) {
+      if (!userMarkerRef.current) {
+        const el = document.createElement("div");
+        el.style.cssText =
+          "width:16px;height:16px;background:#3b82f6;border:3px solid #fff;border-radius:50%;box-shadow:0 0 0 4px rgba(59,130,246,0.3);";
+        el.className = "animate-pulse";
+        userMarkerRef.current = new maplibregl.Marker({ element: el })
+          .setLngLat(userLocation)
+          .addTo(map);
+      } else {
+        userMarkerRef.current.setLngLat(userLocation);
+      }
+    } else {
+      userMarkerRef.current?.remove();
+      userMarkerRef.current = null;
+    }
+  }, [userLocation]);
+
+  // Closest point on course marker (green)
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    if (closestInfo) {
+      if (!closestMarkerRef.current) {
+        const el = document.createElement("div");
+        el.style.cssText =
+          "width:12px;height:12px;background:#22c55e;border:2px solid #fff;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,0.3);";
+        closestMarkerRef.current = new maplibregl.Marker({ element: el })
+          .setLngLat(closestInfo.point)
+          .addTo(map);
+      } else {
+        closestMarkerRef.current.setLngLat(closestInfo.point);
+      }
+    } else {
+      closestMarkerRef.current?.remove();
+      closestMarkerRef.current = null;
+    }
+  }, [closestInfo]);
 
   const selectedCourse = selectedId
     ? courses.find((c) => c.id === selectedId) ?? null
@@ -1012,34 +1144,84 @@ export function CourseExplorer({
           <div ref={mapWrapperRef} className="relative flex-1 min-h-0">
             <div ref={mapContainerRef} className="h-full w-full" />
 
-            {/* Map tile selector */}
-            <div className="absolute bottom-3 left-3 z-10">
+            {/* Controls: right side, below fullscreen (managed by MapLibre) */}
+            <div className="absolute top-[46px] right-[10px] z-10 flex flex-col items-end gap-1.5">
+              {/* North reset */}
+              <button
+                onClick={() => mapRef.current?.resetNorthPitch({ duration: 300 })}
+                title="정북 정렬"
+                className="flex h-[29px] w-[29px] items-center justify-center rounded bg-white shadow-[0_0_0_2px_rgba(0,0,0,0.1)] hover:bg-gray-100"
+              >
+                <Compass className="h-4 w-4 text-gray-700" />
+              </button>
+
+              {/* Map tile selector */}
               {tileMenuOpen ? (
-                <div className="flex gap-1 rounded-lg bg-white/90 p-1 shadow-lg backdrop-blur-sm">
+                <div className="grid grid-cols-2 gap-1 rounded-lg bg-white p-1.5 shadow-[0_0_0_2px_rgba(0,0,0,0.1)]">
                   {MAP_TILES.map((t) => (
                     <button
                       key={t.id}
                       onClick={() => { setMapTileId(t.id); setTileMenuOpen(false); }}
-                      className={`rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                      className={`relative w-[52px] h-[52px] rounded overflow-hidden border-2 transition-all ${
                         mapTileId === t.id
-                          ? "bg-sky-darkblue text-white"
-                          : "text-gray-700 hover:bg-gray-100"
+                          ? "border-sky-darkblue shadow-md"
+                          : "border-transparent hover:border-gray-300"
                       }`}
                     >
-                      {t.label}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={t.preview} alt={t.label} className="h-full w-full object-cover" />
+                      <span className={`absolute inset-x-0 bottom-0 text-[9px] font-bold py-0.5 ${
+                        t.id === "dark"
+                          ? "bg-black/60 text-white"
+                          : "bg-white/80 text-gray-800"
+                      }`}>
+                        {t.label}
+                      </span>
                     </button>
                   ))}
                 </div>
               ) : (
                 <button
                   onClick={() => setTileMenuOpen(true)}
-                  className="flex items-center gap-1.5 rounded-lg bg-white/90 px-2.5 py-1.5 text-xs font-medium text-gray-700 shadow-lg backdrop-blur-sm hover:bg-white"
+                  title={MAP_TILES.find((t) => t.id === mapTileId)?.label ?? "지도"}
+                  className="flex h-[29px] w-[29px] items-center justify-center rounded bg-white shadow-[0_0_0_2px_rgba(0,0,0,0.1)] hover:bg-gray-100"
                 >
-                  <Layers className="h-3.5 w-3.5" />
-                  {MAP_TILES.find((t) => t.id === mapTileId)?.label ?? "일반"}
+                  <Layers className="h-4 w-4 text-gray-700" />
                 </button>
               )}
+
+              {/* My location */}
+              {!geoActive ? (
+                <button
+                  onClick={startGeo}
+                  title="내 위치"
+                  className="flex h-[29px] w-[29px] items-center justify-center rounded bg-white shadow-[0_0_0_2px_rgba(0,0,0,0.1)] hover:bg-gray-100"
+                >
+                  <Locate className="h-4 w-4 text-gray-700" />
+                </button>
+              ) : (
+                <div className="flex items-center gap-1.5 rounded bg-white px-2 py-1 shadow-[0_0_0_2px_rgba(0,0,0,0.1)]">
+                  <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
+                  <span className="text-xs text-gray-700">
+                    {currentDistanceKm != null ? `${currentDistanceKm.toFixed(1)} km` : "GPS"}
+                  </span>
+                  <button onClick={stopGeo} className="ml-0.5 text-gray-400 hover:text-gray-700">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )}
             </div>
+
+            {/* Checkpoint popup (street view + map) */}
+            {selectedCp && (
+              <CheckpointPopup
+                name={selectedCp.name}
+                index={selectedCp.index}
+                lngLat={selectedCp.lngLat}
+                imageKey={selectedCp.imageKey}
+                onClose={() => setSelectedCp(null)}
+              />
+            )}
           </div>
 
           {/* Elevation chart — below map, always in DOM with max-height transition */}
@@ -1054,6 +1236,8 @@ export function CourseExplorer({
                   data={detailData.elevations}
                   checkpoints={detailData.checkpoints}
                   onHover={handleChartHover}
+                  onCheckpointClick={handleCheckpointClick}
+                  currentDistanceKm={currentDistanceKm}
                   compact
                 />
               </div>
@@ -1101,18 +1285,24 @@ export function CourseExplorer({
                         <button
                           key={opt.value}
                           type="button"
-                          onClick={() =>
-                            setSortBy(
-                              opt.value as "number" | "distance" | "elevation" | "name"
-                            )
-                          }
-                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors ${
+                          onClick={() => {
+                            if (active) {
+                              setSortOrder((prev) => prev === "asc" ? "desc" : "asc");
+                            } else {
+                              setSortBy(opt.value as "number" | "distance" | "elevation" | "name");
+                              setSortOrder("asc");
+                            }
+                          }}
+                          className={`inline-flex items-center gap-0.5 rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors ${
                             active
                               ? "bg-t-badge-p-bg text-t-badge-p-text"
                               : "bg-t-badge-bg text-t-badge-text hover:bg-t-hover"
                           }`}
                         >
                           {opt.label}
+                          {active && (
+                            <span className="text-[10px]">{sortOrder === "asc" ? "▲" : "▼"}</span>
+                          )}
                         </button>
                       );
                     })}

@@ -6,6 +6,7 @@ import { Bike } from "lucide-react";
 
 interface BeginnerCourse {
   id: string;
+  slug: string;
   name: string;
   distanceKm: number | null;
   elevationM: number | null;
@@ -25,7 +26,7 @@ export default function BeginnerCourses({ country }: { country?: string } = {}) 
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, []);
+  }, [country]);
 
   if (loading) {
     return (
@@ -70,7 +71,7 @@ export default function BeginnerCourses({ country }: { country?: string } = {}) 
         {courses.map((course) => (
           <Link
             key={course.id}
-            href={`/courses/${course.id}`}
+            href={`/courses/${course.slug}`}
             className="rounded-lg border border-t-border p-3 hover:bg-t-hover transition-colors block"
           >
             <p className="font-medium text-sm text-t-text truncate">

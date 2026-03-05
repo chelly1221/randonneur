@@ -85,7 +85,7 @@ export default async function PublicProfilePage({
     where: { userId: id },
     orderBy: { completedAt: "desc" },
     take: 5,
-    include: { course: { select: { id: true, name: true, distanceKm: true } } },
+    include: { course: { select: { id: true, slug: true, name: true, distanceKm: true } } },
   });
 
   const badges = user.userBadges.map((ub) => ({
@@ -186,7 +186,7 @@ export default async function PublicProfilePage({
               <Card key={c.id}>
                 <CardContent className="flex items-center justify-between py-2">
                   <Link
-                    href={`/courses/${c.course.id}`}
+                    href={`/courses/${c.course.slug}`}
                     className="text-sm font-medium hover:text-t-link"
                   >
                     {c.course.name}

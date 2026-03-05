@@ -1,3 +1,5 @@
+import { generateUniqueCourseSlug } from "./slug";
+
 /**
  * Randonneurs Ontario Permanent Course Scraper
  *
@@ -57,6 +59,7 @@ interface ParsedRoute {
   linkType: "rwgps" | "gpx" | "pdf";
   rwgpsId?: string;      // RWGPS route ID
   gpxUrl?: string;       // Direct GPX file URL
+  gpxFallbackUrl?: string; // Fallback GPX URL tried when RWGPS fails (403/404)
   slug: string;          // Unique identifier
 }
 
@@ -206,6 +209,14 @@ function makeSlug(name: string): string {
 }
 
 /**
+ * Build a candidate GPX filename from a route name by replacing spaces with underscores.
+ * e.g. "Big Chute 200" → "Big_Chute_200.gpx"
+ */
+function gpxFilenameFromName(name: string): string {
+  return name.replace(/\s+/g, "_").replace(/[^A-Za-z0-9_\-().]/g, "") + ".gpx";
+}
+
+/**
  * Extract distance from route name. The last number in the name is usually the distance.
  * e.g. "Bewdley 160" → 160, "Concord Beeton Flat 100" → 100
  */
@@ -240,9 +251,13 @@ function parseChapterPage(
   const routes: ParsedRoute[] = [];
   const seen = new Set<string>();
 
+  // Strip HTML comments to avoid matching links inside <!-- ... --> blocks.
+  // Commented-out links are obsolete and cause course records with stale IDs.
+  const strippedHtml = html.replace(/<!--[\s\S]*?-->/g, "");
+
   // Split by h2/h3 headers to get category context
   // Match headers like <h2>Populaires</h2>, <h3>200 km Brevets</h3>
-  const sections = html.split(/<h[23][^>]*>/i);
+  const sections = strippedHtml.split(/<h[23][^>]*>/i);
 
   let currentCategory = "brevet";
 
@@ -258,7 +273,7 @@ function parseChapterPage(
     let match;
 
     while ((match = linkRegex.exec(section)) !== null) {
-      const href = match[1];
+      const href = match[1].trim();
       const rawName = decodeHtmlEntities(match[2].trim());
 
       // Skip empty names or non-route links
@@ -279,6 +294,8 @@ function parseChapterPage(
       if (href.includes("ridewithgps.com/routes/")) {
         const rwgpsMatch = href.match(/ridewithgps\.com\/routes\/(\d+)/);
         if (rwgpsMatch) {
+          // Build a fallback GPX URL in case RWGPS is unavailable (private/deleted route)
+          const gpxFallbackUrl = `${BASE_URL}/routes/${chapterPath}/${gpxFilenameFromName(cleanName)}`;
           routes.push({
             chapter,
             chapterName,
@@ -287,6 +304,7 @@ function parseChapterPage(
             category: currentCategory,
             linkType: "rwgps",
             rwgpsId: rwgpsMatch[1],
+            gpxFallbackUrl,
             slug,
           });
         }
@@ -449,10 +467,11 @@ async function fetchAndProcessRwgps(
     const minioLib = eval("require")("./minio") as {
       uploadGpx: (key: string, data: Buffer) => Promise<string>;
     };
-    gpxFileKey = `courses/or-${slug}.gpx`;
-    await minioLib.uploadGpx(gpxFileKey, gpxBuffer);
+    const targetKey = `courses/or-${slug}.gpx`;
+    await minioLib.uploadGpx(targetKey, gpxBuffer);
+    gpxFileKey = targetKey; // only set after successful upload
   } catch {
-    // Non-critical
+    gpxFileKey = null; // ensure key is not returned if upload failed
   }
 
   return { gpxFileKey, elevationM, distanceKm, elevationProfile, geojsonGeometry };
@@ -496,10 +515,11 @@ async function downloadAndProcessGpx(
     const minioLib = eval("require")("./minio") as {
       uploadGpx: (key: string, data: Buffer) => Promise<string>;
     };
-    gpxFileKey = `courses/or-${slug}.gpx`;
-    await minioLib.uploadGpx(gpxFileKey, gpxBuffer);
+    const targetKey = `courses/or-${slug}.gpx`;
+    await minioLib.uploadGpx(targetKey, gpxBuffer);
+    gpxFileKey = targetKey; // only set after successful upload
   } catch {
-    // Non-critical
+    gpxFileKey = null; // ensure key is not returned if upload failed
   }
 
   return { gpxFileKey, elevationM, distanceKm, elevationProfile, geojsonGeometry };
@@ -565,13 +585,33 @@ export async function runOntarioRandonneursScraper(): Promise<ScrapeResult> {
           ? `or-rwgps-${route.rwgpsId}`
           : `or-${route.slug}`;
 
-        // Check if already exists
-        const existing = await prisma.course.findFirst({
+        // Check if already exists by externalId, or fall back to slug-based ID
+        // (older records may have been created from commented-out links with slug-only IDs)
+        let existing = await prisma.course.findFirst({
           where: {
             sourceType: "ontario-randonneurs",
             externalId,
           },
         });
+        if (!existing) {
+          // Try slug-based ID for courses that were created before comment stripping was added
+          const slugExternalId = `or-${route.slug}`;
+          if (slugExternalId !== externalId) {
+            existing = await prisma.course.findFirst({
+              where: {
+                sourceType: "ontario-randonneurs",
+                externalId: slugExternalId,
+              },
+            });
+            // If found by slug, update the externalId to the canonical RWGPS-based one
+            if (existing) {
+              await prisma.course.update({
+                where: { id: existing.id },
+                data: { externalId },
+              });
+            }
+          }
+        }
 
         if (existing) {
           // Check for metadata updates
@@ -585,11 +625,20 @@ export async function runOntarioRandonneursScraper(): Promise<ScrapeResult> {
           if (!existing.gpxFileKey) {
             try {
               await sleep(500);
-              const gpxData = route.linkType === "rwgps" && route.rwgpsId
+              let gpxData = route.linkType === "rwgps" && route.rwgpsId
                 ? await fetchAndProcessRwgps(route.rwgpsId, route.slug, route.name)
                 : route.linkType === "gpx" && route.gpxUrl
                   ? await downloadAndProcessGpx(route.gpxUrl, route.slug)
                   : null;
+
+              // If RWGPS failed (private/deleted route), try the fallback GPX URL
+              if (!gpxData && route.linkType === "rwgps" && route.gpxFallbackUrl) {
+                try {
+                  gpxData = await downloadAndProcessGpx(route.gpxFallbackUrl, route.slug);
+                } catch {
+                  // Fallback also unavailable — leave gpxData as null
+                }
+              }
 
               if (gpxData) {
                 if (gpxData.gpxFileKey) updates.gpxFileKey = gpxData.gpxFileKey;
@@ -615,6 +664,16 @@ export async function runOntarioRandonneursScraper(): Promise<ScrapeResult> {
               const msg = e instanceof Error ? e.message : String(e);
               result.errors.push(`GPX re-download failed for ${route.slug}: ${msg}`);
             }
+          }
+
+          // Regenerate slug if name or distance changed
+          if (updates.name !== undefined || updates.distanceKm !== undefined) {
+            updates.slug = await generateUniqueCourseSlug(
+              (updates.name as string) ?? existing.name,
+              (updates.distanceKm as number) ?? existing.distanceKm,
+              existing.courseNumber ?? "",
+              existing.id
+            );
           }
 
           if (Object.keys(updates).length > 0) {
@@ -652,6 +711,22 @@ export async function runOntarioRandonneursScraper(): Promise<ScrapeResult> {
             const msg = e instanceof Error ? e.message : String(e);
             result.errors.push(`RWGPS failed for ${route.slug}: ${msg}`);
           }
+          // If RWGPS failed (private/deleted route), try the fallback GPX URL
+          if (!gpxFileKey && route.gpxFallbackUrl) {
+            try {
+              await sleep(300);
+              const fallback = await downloadAndProcessGpx(route.gpxFallbackUrl, route.slug);
+              if (fallback) {
+                gpxFileKey = fallback.gpxFileKey;
+                if (fallback.elevationM > 0) elevationM = fallback.elevationM;
+                if (fallback.distanceKm > 0) distanceKm = fallback.distanceKm;
+                elevationProfile = fallback.elevationProfile;
+                geojsonGeometry = fallback.geojsonGeometry;
+              }
+            } catch {
+              // Fallback also unavailable — course will be created without GPX
+            }
+          }
         } else if (route.linkType === "gpx" && route.gpxUrl) {
           try {
             const data = await downloadAndProcessGpx(route.gpxUrl, route.slug);
@@ -678,8 +753,16 @@ export async function runOntarioRandonneursScraper(): Promise<ScrapeResult> {
           ? `https://ridewithgps.com/routes/${route.rwgpsId}`
           : route.gpxUrl || `${BASE_URL}/routes/${route.chapter}routes.html`;
 
+        // Skip courses without GPX - can't display on map
+        if (!gpxFileKey) {
+          result.skipped++;
+          continue;
+        }
+
+        const courseSlug = await generateUniqueCourseSlug(route.name, distanceKm || 0, courseNumber);
         const newCourse = await prisma.course.create({
           data: {
+            slug: courseSlug,
             courseNumber,
             name: route.name,
             distanceKm: distanceKm || 0,

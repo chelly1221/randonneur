@@ -44,6 +44,7 @@ export const DISTANCE_RANGES = [
 
 export interface CourseWithGeojson {
   id: string;
+  slug: string;
   name: string;
   distanceKm: number;
   elevationM: number;

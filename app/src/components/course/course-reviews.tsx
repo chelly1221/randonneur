@@ -10,7 +10,6 @@ import { ReportButton } from "./report-button";
 import { UserAvatar } from "@/components/user/user-avatar";
 import { Pencil, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { ReviewPhotosDisplay } from "./review-photos-display";
 
 interface ReviewUser {
@@ -107,7 +106,7 @@ interface CourseReviewsProps {
 }
 
 export function CourseReviews({ courseId, courseSlug, onWriteClick }: CourseReviewsProps) {
-  const router = useRouter();
+
   const { data: session } = useSession();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
@@ -202,7 +201,7 @@ export function CourseReviews({ courseId, courseSlug, onWriteClick }: CourseRevi
             type="button"
             onClick={() => {
               if (courseSlug) {
-                router.push(`/courses/${courseSlug}/review`);
+                window.location.href = `/courses/${courseSlug}/review`;
               } else if (onWriteClick) {
                 onWriteClick();
               }

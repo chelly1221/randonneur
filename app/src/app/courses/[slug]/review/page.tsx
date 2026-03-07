@@ -15,7 +15,8 @@ export default async function ReviewWritePage({
     redirect("/api/auth/signin");
   }
 
-  const { slug } = await params;
+  const { slug: rawSlug } = await params;
+  const slug = decodeURIComponent(rawSlug);
   const course = await prisma.course.findUnique({
     where: { slug },
     select: {

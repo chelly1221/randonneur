@@ -47,7 +47,8 @@ export async function generateMetadata({
 }: {
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
-  const { slug } = await params;
+  const { slug: rawSlug } = await params;
+  const slug = decodeURIComponent(rawSlug);
   const course = await prisma.course.findUnique({
     where: { slug },
     select: { name: true, distanceKm: true, elevationM: true, region: true, startLocation: true },
@@ -96,8 +97,9 @@ interface Props {
 
 export default async function CourseDetailPage({ params }: Props) {
   const { slug } = await params;
+  const decodedSlug = decodeURIComponent(slug);
 
-  const result = await findCourseBySlugOrUuid(slug);
+  const result = await findCourseBySlugOrUuid(decodedSlug);
 
   // UUID redirect: 301 permanent redirect to slug URL
   if (result.isUuid && result.redirectSlug) {

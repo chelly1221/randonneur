@@ -94,7 +94,7 @@ export function ShareButton({
           e.stopPropagation();
           setOpen((prev) => !prev);
         }}
-        className="inline-flex items-center gap-1 h-7 px-2 rounded-md border border-t-border text-[11px] text-t-text hover:bg-t-hover transition-colors"
+        className="inline-flex items-center gap-1 h-7 px-2 rounded-md border border-t-outline-border bg-t-outline-bg text-[11px] font-medium text-t-text hover:bg-t-outline-hover transition-colors"
         title="공유하기"
       >
         <svg

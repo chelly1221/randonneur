@@ -30,6 +30,10 @@ export async function register() {
     // Prisma not available during build — ignore
   }
 
+  // Sitemap generator — generate on startup (30s delay) + every 6 hours
+  setTimeout(generateSitemapSafe, 30 * 1000);
+  setInterval(generateSitemapSafe, 6 * 60 * 60 * 1000);
+
   // ACP BRM scraper — check every hour
   setInterval(checkAndRunAcpScraper, 60 * 60 * 1000);
 
@@ -86,6 +90,16 @@ export async function register() {
 
   // Audax South Africa — check every 6 hours
   setInterval(checkAndRunAudaxSaScraper, 6 * 60 * 60 * 1000);
+}
+
+async function generateSitemapSafe() {
+  try {
+    const { generateSitemap } = await import("./lib/sitemap-generator");
+    await generateSitemap();
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("[sitemap] Generation failed:", msg);
+  }
 }
 
 async function checkAndRunAcpScraper() {

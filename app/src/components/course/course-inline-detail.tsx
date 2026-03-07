@@ -21,6 +21,8 @@ import {
   Lock,
   Plus,
   X,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { ShareButton } from "@/components/course/share-button";
 
@@ -148,6 +150,18 @@ export function CourseInlineDetail({
   const [completionStatus, setCompletionStatus] = useState("success");
   const [recordNotes, setRecordNotes] = useState("");
   const [gpxFile, setGpxFile] = useState<File | null>(null);
+  // Edit record state
+  const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
+  const [editRecordDate, setEditRecordDate] = useState("");
+  const [editRecordStatus, setEditRecordStatus] = useState("success");
+  const [editRecordNotes, setEditRecordNotes] = useState("");
+  const [editRecordSubmitting, setEditRecordSubmitting] = useState(false);
+  const [editGpxFile, setEditGpxFile] = useState<File | null>(null);
+  const [editShowReview, setEditShowReview] = useState(false);
+  const [editReviewStatus, setEditReviewStatus] = useState("success");
+  const [editReviewDifficulty, setEditReviewDifficulty] = useState("");
+  const [editReviewDiffHover, setEditReviewDiffHover] = useState(0);
+  const [editReviewContent, setEditReviewContent] = useState("");
   // Inline review (optional, inside records form)
   const [showReview, setShowReview] = useState(false);
   const [reviewStatus, setReviewStatus] = useState("success");
@@ -280,6 +294,71 @@ export function CourseInlineDetail({
       }
     } finally {
       setRecordSubmitting(false);
+    }
+  }
+
+  function startEditRecord(c: MyCompletion) {
+    setEditingRecordId(c.id);
+    setEditRecordDate(new Date(c.completedAt).toISOString().split("T")[0]);
+    setEditRecordStatus(c.completionStatus);
+    setEditRecordNotes(c.notes ?? "");
+    setEditGpxFile(null);
+    setEditShowReview(false);
+    setEditReviewStatus("success");
+    setEditReviewDifficulty("");
+    setEditReviewContent("");
+  }
+
+  function cancelEditRecord() {
+    setEditingRecordId(null);
+    setEditShowReview(false);
+    setEditReviewContent("");
+    setEditGpxFile(null);
+  }
+
+  async function handleEditRecordSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!editingRecordId) return;
+    setEditRecordSubmitting(true);
+    try {
+      const form = new FormData();
+      form.set("completedAt", editRecordDate);
+      form.set("completionStatus", editRecordStatus);
+      form.set("notes", editRecordNotes);
+      if (editGpxFile) {
+        form.set("gpx", editGpxFile);
+      }
+
+      const res = await fetch(`/api/completions/${editingRecordId}`, {
+        method: "PUT",
+        body: form,
+      });
+      if (res.ok) {
+        // If review content is provided, also submit a review
+        if (editShowReview && editReviewContent.trim()) {
+          await fetch(`/api/courses/${courseId}/reviews`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              completionStatus: editReviewStatus,
+              difficulty: editReviewDifficulty || null,
+              content: editReviewContent.trim(),
+            }),
+          });
+        }
+        cancelEditRecord();
+        setRecordsLoaded(false);
+      }
+    } finally {
+      setEditRecordSubmitting(false);
+    }
+  }
+
+  async function handleDeleteRecord(id: string) {
+    if (!confirm("이 기록을 삭제하시겠습니까?")) return;
+    const res = await fetch(`/api/completions/${id}`, { method: "DELETE" });
+    if (res.ok) {
+      setRecordsLoaded(false);
     }
   }
 
@@ -881,19 +960,178 @@ export function CourseInlineDetail({
                       : c.completionStatus === "dnq" ? "text-t-muted"
                       : c.completionStatus === "dns" ? "text-sky-red"
                       : "text-t-success";
+
+                    if (editingRecordId === c.id) {
+                      return (
+                        <form key={c.id} onSubmit={handleEditRecordSubmit} className="rounded border border-t-border bg-t-surface/60 px-3 py-2.5 space-y-2">
+                          <div>
+                            <label className="block text-[10px] text-t-muted mb-1">완주 상태</label>
+                            <div className="flex flex-wrap gap-1">
+                              {([
+                                { value: "success", label: "완주",  cls: editRecordStatus === "success" ? "bg-emerald-600 text-white border-emerald-600" : "border-t-border text-t-muted hover:border-sky-blue hover:text-sky-blue" },
+                                { value: "dnf",     label: "DNF",   cls: editRecordStatus === "dnf"     ? "bg-sky-orange text-white border-sky-orange"   : "border-t-border text-t-muted hover:border-sky-blue hover:text-sky-blue" },
+                                { value: "dnq",     label: "DNQ",   cls: editRecordStatus === "dnq"     ? "bg-t-subtle text-t-text border-t-subtle"       : "border-t-border text-t-muted hover:border-sky-blue hover:text-sky-blue" },
+                                { value: "dns",     label: "DNS",   cls: editRecordStatus === "dns"     ? "bg-sky-red text-white border-sky-red"           : "border-t-border text-t-muted hover:border-sky-blue hover:text-sky-blue" },
+                              ] as const).map((opt) => (
+                                <button
+                                  key={opt.value}
+                                  type="button"
+                                  onClick={() => setEditRecordStatus(opt.value)}
+                                  className={`rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition-colors ${opt.cls}`}
+                                >
+                                  {opt.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-t-muted mb-1">완주 날짜</label>
+                            <input
+                              type="date"
+                              value={editRecordDate}
+                              onChange={(e) => setEditRecordDate(e.target.value)}
+                              required
+                              className="w-full rounded border border-t-border bg-t-surface px-2 py-1 text-[11px] text-t-text"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-t-muted mb-1">메모 (선택)</label>
+                            <input
+                              type="text"
+                              value={editRecordNotes}
+                              onChange={(e) => setEditRecordNotes(e.target.value)}
+                              placeholder="메모를 입력하세요"
+                              className="w-full rounded border border-t-border bg-t-surface px-2 py-1 text-[11px] text-t-text placeholder:text-t-muted"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-t-muted mb-1">GPX 파일 (선택)</label>
+                            <input
+                              type="file"
+                              accept=".gpx"
+                              className="w-full text-[11px] text-t-text"
+                              onChange={(e) => setEditGpxFile(e.target.files?.[0] ?? null)}
+                            />
+                          </div>
+                          <GpxStatsPreview file={editGpxFile} />
+
+                          {/* 후기 작성 토글 */}
+                          <div className="border-t border-t-border pt-2">
+                            <button
+                              type="button"
+                              onClick={() => setEditShowReview((v) => !v)}
+                              className="flex items-center gap-1.5 text-[10px] text-sky-blue hover:underline"
+                            >
+                              {editShowReview ? "▾ 후기 작성 취소" : "▸ 후기도 함께 작성 (선택)"}
+                            </button>
+                            {editShowReview && (
+                              <div className="mt-2 space-y-1.5">
+                                <div>
+                                  <p className="text-[10px] text-t-muted mb-1">완주 상태</p>
+                                  <div className="flex flex-wrap gap-1">
+                                    {([
+                                      { value: "success", label: "성공",  cls: editReviewStatus === "success" ? "bg-emerald-600 text-white" : "bg-t-hover text-t-muted" },
+                                      { value: "dnf",     label: "DNF",   cls: editReviewStatus === "dnf"     ? "bg-sky-orange text-white"  : "bg-t-hover text-t-muted" },
+                                      { value: "dnq",     label: "DNQ",   cls: editReviewStatus === "dnq"     ? "bg-t-subtle text-t-text"   : "bg-t-hover text-t-muted" },
+                                      { value: "dns",     label: "DNS",   cls: editReviewStatus === "dns"     ? "bg-sky-red text-white"     : "bg-t-hover text-t-muted" },
+                                    ] as const).map((opt) => (
+                                      <button
+                                        key={opt.value}
+                                        type="button"
+                                        onClick={() => setEditReviewStatus(opt.value)}
+                                        className={`rounded px-2.5 py-0.5 text-[11px] font-medium transition-colors ${opt.cls}`}
+                                      >
+                                        {opt.label}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                                <div>
+                                  <p className="text-[10px] text-t-muted mb-1">체감 난이도 (선택)</p>
+                                  <div className="flex items-center gap-0.5">
+                                    {[1, 2, 3, 4, 5].map((star) => (
+                                      <button
+                                        key={star}
+                                        type="button"
+                                        onMouseEnter={() => setEditReviewDiffHover(star)}
+                                        onMouseLeave={() => setEditReviewDiffHover(0)}
+                                        onClick={() => setEditReviewDifficulty(editReviewDifficulty === String(star) ? "" : String(star))}
+                                        className={`text-lg leading-none transition-colors ${
+                                          star <= (editReviewDiffHover || Number(editReviewDifficulty)) ? "text-sky-yellow" : "text-t-muted"
+                                        }`}
+                                      >
+                                        ★
+                                      </button>
+                                    ))}
+                                    {editReviewDifficulty && (
+                                      <span className="ml-1 text-[10px] text-t-muted">{editReviewDifficulty}/5</span>
+                                    )}
+                                  </div>
+                                </div>
+                                <RichTextEditor
+                                  value={editReviewContent}
+                                  onChange={setEditReviewContent}
+                                  placeholder="후기를 입력하세요..."
+                                  minHeight={72}
+                                />
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex gap-1.5">
+                            <button
+                              type="submit"
+                              disabled={editRecordSubmitting}
+                              className="flex items-center gap-1 rounded bg-sky-darkblue px-3 py-1 text-[11px] text-white hover:bg-sky-darkblue/80 disabled:opacity-50"
+                            >
+                              {editRecordSubmitting && <Loader2 className="h-3 w-3 animate-spin" />}
+                              수정
+                            </button>
+                            <button
+                              type="button"
+                              onClick={cancelEditRecord}
+                              className="rounded border border-t-border px-3 py-1 text-[11px] text-t-muted hover:bg-t-hover"
+                            >
+                              취소
+                            </button>
+                          </div>
+                        </form>
+                      );
+                    }
+
                     return (
                       <div
                         key={c.id}
                         className="rounded border border-t-border bg-t-bg/40 px-2.5 py-2"
                       >
-                        <div className="flex items-center gap-2">
-                          <CheckCircle className={`h-3.5 w-3.5 shrink-0 ${statusCls}`} />
-                          <span className="text-[11px] font-medium text-t-text">
-                            {new Date(c.completedAt).toLocaleDateString("ko-KR")}
-                          </span>
-                          {statusLabel && (
-                            <span className={`text-[10px] font-semibold ${statusCls}`}>{statusLabel}</span>
-                          )}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle className={`h-3.5 w-3.5 shrink-0 ${statusCls}`} />
+                            <span className="text-[11px] font-medium text-t-text">
+                              {new Date(c.completedAt).toLocaleDateString("ko-KR")}
+                            </span>
+                            {statusLabel && (
+                              <span className={`text-[10px] font-semibold ${statusCls}`}>{statusLabel}</span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => startEditRecord(c)}
+                              className="rounded p-0.5 text-t-muted hover:text-t-text hover:bg-t-hover"
+                              title="수정"
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteRecord(c.id)}
+                              className="rounded p-0.5 text-t-muted hover:text-sky-red hover:bg-t-hover"
+                              title="삭제"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </div>
                         </div>
                         {c.notes && (
                           <p className="mt-0.5 pl-5 text-[11px] text-t-muted">{c.notes}</p>

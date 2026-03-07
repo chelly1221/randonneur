@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { SessionProvider } from "@/components/auth/session-provider";
 import { ThemeProvider } from "@/components/theme-provider";
 import { WeatherEffects } from "@/components/weather-effects";
@@ -38,6 +39,23 @@ export default function RootLayout({
   return (
     <html lang="ko" suppressHydrationWarning>
       <body className="min-h-screen antialiased">
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-75X17HCBCT"
+          strategy="afterInteractive"
+        />
+        <Script id="gtag-init" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-75X17HCBCT');
+          `}
+        </Script>
+        <Script
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1163834974598586"
+          strategy="afterInteractive"
+          crossOrigin="anonymous"
+        />
         <ThemeProvider>
           <SessionProvider>
             <WeatherEffects />

@@ -1,129 +1,63 @@
 import NextAuth from "next-auth";
-import Keycloak from "next-auth/providers/keycloak";
+import Google from "next-auth/providers/google";
+import Naver from "next-auth/providers/naver";
 import { prisma } from "./db";
-
-const useSecureCookies = (process.env.NEXTAUTH_URL ?? "").startsWith("https://");
-const cookiePrefix = useSecureCookies ? "__Secure-" : "";
-
-function resolveDisplayName(
-  user: { name?: string | null; email?: string | null },
-  profile: Record<string, unknown>
-) {
-  const given = typeof profile.given_name === "string" ? profile.given_name.trim() : "";
-  const family = typeof profile.family_name === "string" ? profile.family_name.trim() : "";
-  const preferred =
-    typeof profile.preferred_username === "string"
-      ? profile.preferred_username.trim()
-      : "";
-
-  if (family && given) {
-    // When Keycloak relays a Google login, it maps Google's full name (e.g. "서상현")
-    // into given_name, leaving family_name as "서". Detect this by checking whether
-    // given_name already begins with family_name — if so, given_name is the full name.
-    if (given.startsWith(family)) return given;
-    return `${family}${given}`;
-  }
-  if (user.name && user.name.trim()) return user.name.trim();
-  if (preferred) return preferred;
-  return "User";
-}
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
-    Keycloak({
-      clientId: process.env.AUTH_KEYCLOAK_ID!,
-      clientSecret: process.env.AUTH_KEYCLOAK_SECRET!,
-      issuer: process.env.AUTH_KEYCLOAK_ISSUER!,
+    Google({
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    }),
+    Naver({
+      clientId: process.env.NAVER_CLIENT_ID!,
+      clientSecret: process.env.NAVER_CLIENT_SECRET!,
     }),
   ],
-  cookies: {
-    pkceCodeVerifier: {
-      name: `${cookiePrefix}authjs.pkce.code_verifier.v2`,
-      options: {
-        httpOnly: true,
-        sameSite: "lax",
-        path: "/",
-        secure: useSecureCookies,
-      },
-    },
-    state: {
-      name: `${cookiePrefix}authjs.state.v2`,
-      options: {
-        httpOnly: true,
-        sameSite: "lax",
-        path: "/",
-        secure: useSecureCookies,
-      },
-    },
-    nonce: {
-      name: `${cookiePrefix}authjs.nonce.v2`,
-      options: {
-        httpOnly: true,
-        sameSite: "lax",
-        path: "/",
-        secure: useSecureCookies,
-      },
-    },
-  },
   callbacks: {
-    async jwt({ token, account, profile }) {
-      if (account && profile) {
-        token.sub = profile.sub ?? undefined;
-        token.name = resolveDisplayName(
-          { name: token.name as string | null, email: token.email as string | null },
-          profile as Record<string, unknown>
-        );
-        // Extract realm roles from Keycloak token
-        const realmAccess = (profile as Record<string, unknown>)
-          .realm_access as { roles?: string[] } | undefined;
-        token.roles = realmAccess?.roles ?? ["user"];
-      }
-      // Refresh user status from DB
-      if (token.sub) {
-        try {
-          const dbUser = await prisma.user.findUnique({
-            where: { keycloakId: token.sub },
-            select: { status: true },
-          });
-          token.status = dbUser?.status ?? "active";
-        } catch {
-          token.status = token.status ?? "active";
+    // Email is the cross-provider identity key — Google and Naver both return
+    // a verified email. On first login we find-or-create the user row by
+    // email, so existing accounts (and their riding history) stay linked.
+    async signIn({ user }) {
+      if (!user.email) return false;
+      await prisma.user.upsert({
+        where: { email: user.email },
+        update: {},
+        create: {
+          email: user.email,
+          displayName: user.name?.trim() || "User",
+          role: "user",
+        },
+      });
+      return true;
+    },
+    async jwt({ token }) {
+      // token.email is populated on sign-in and persists in the JWT.
+      // Resolve the DB user on every call so role/status stay fresh, and
+      // expose the internal user UUID as token.sub.
+      if (token.email) {
+        const dbUser = await prisma.user.findUnique({
+          where: { email: token.email },
+          select: { id: true, role: true, status: true, displayName: true },
+        });
+        if (dbUser) {
+          token.sub = dbUser.id;
+          token.roles = [dbUser.role];
+          token.status = dbUser.status;
+          token.name = dbUser.displayName;
         }
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
+        // session.user.id is the internal users.id UUID.
         session.user.id = token.sub!;
         session.user.roles = (token.roles as string[]) ?? ["user"];
-        session.user.name = (token.name as string) ?? session.user.name ?? null;
         session.user.status = (token.status as string) ?? "active";
+        session.user.name = (token.name as string) ?? session.user.name ?? null;
       }
       return session;
-    },
-    async signIn({ user, profile }) {
-      if (!profile?.sub) return true;
-      // Upsert user in local database on first login
-      try {
-        const profileRecord = profile as Record<string, unknown>;
-        const displayName = resolveDisplayName(user, profileRecord);
-        await prisma.user.upsert({
-          where: { keycloakId: profile.sub },
-          update: {
-            displayName,
-            email: user.email ?? "",
-          },
-          create: {
-            keycloakId: profile.sub,
-            displayName,
-            email: user.email ?? "",
-            role: "user",
-          },
-        });
-      } catch (e) {
-        console.error("Failed to upsert user:", e);
-      }
-      return true;
     },
   },
   pages: {

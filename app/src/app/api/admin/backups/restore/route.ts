@@ -71,13 +71,9 @@ export async function POST(request: NextRequest) {
 
     // Verify expected files
     const randonneurDump = path.join(backupDir, "randonneur.dump");
-    const keycloakDump = path.join(backupDir, "keycloak.dump");
 
     if (!fs.existsSync(randonneurDump)) {
       throw new Error("randonneur.dump not found in archive");
-    }
-    if (!fs.existsSync(keycloakDump)) {
-      throw new Error("keycloak.dump not found in archive");
     }
 
     // --- 2. Disconnect Prisma ---
@@ -135,35 +131,7 @@ export async function POST(request: NextRequest) {
       // Table might not exist yet
     }
 
-    // --- 4. Restore keycloak DB ---
-    try {
-      execSync(
-        `psql -h ${db.host} -p ${db.port} -U ${db.user} -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'keycloak' AND pid <> pg_backend_pid();"`,
-        { env: pgEnv, timeout: 30_000, stdio: "pipe" }
-      );
-    } catch {
-      // Ignore
-    }
-
-    execSync(
-      `psql -h ${db.host} -p ${db.port} -U ${db.user} -d postgres -c "DROP DATABASE IF EXISTS keycloak;"`,
-      { env: pgEnv, timeout: 30_000, stdio: "pipe" }
-    );
-    execSync(
-      `psql -h ${db.host} -p ${db.port} -U ${db.user} -d postgres -c "CREATE DATABASE keycloak;"`,
-      { env: pgEnv, timeout: 30_000, stdio: "pipe" }
-    );
-
-    try {
-      execSync(
-        `pg_restore -h ${db.host} -p ${db.port} -U ${db.user} -d keycloak --no-owner --no-privileges --clean --if-exists "${keycloakDump}"`,
-        { env: pgEnv, timeout: 300_000, stdio: "pipe" }
-      );
-    } catch {
-      // pg_restore may return non-zero on warnings
-    }
-
-    // --- 5. Restore MinIO data ---
+    // --- 4. Restore MinIO data ---
     const minioDataDir = path.join(backupDir, "minio-data");
     let restoredFiles = 0;
 
@@ -205,7 +173,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // --- 6. Resolve failed migrations and run prisma migrate deploy ---
+    // --- 5. Resolve failed migrations and run prisma migrate deploy ---
     // Restored DB may contain failed migration records that block migrate deploy.
     // Mark them as rolled back so Prisma can re-apply cleanly.
     try {

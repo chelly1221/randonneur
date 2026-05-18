@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
   }
 
   const user = await prisma.user.findUnique({
-    where: { keycloakId: session.user.id },
+    where: { id: session.user.id },
   });
   if (!user || user.status !== "active") {
     return NextResponse.json({ error: "Account restricted" }, { status: 403 });

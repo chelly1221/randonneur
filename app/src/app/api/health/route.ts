@@ -29,20 +29,6 @@ export async function GET() {
       );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
     }),
-    checkService("valhalla", async () => {
-      const res = await fetch(`${process.env.VALHALLA_URL}/status`, {
-        signal: AbortSignal.timeout(3000),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    }),
-    checkService("keycloak", async () => {
-      const issuer = process.env.AUTH_KEYCLOAK_ISSUER;
-      if (!issuer) throw new Error("Not configured");
-      const res = await fetch(`${issuer}/.well-known/openid-configuration`, {
-        signal: AbortSignal.timeout(3000),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    }),
   ]);
 
   const allOk = checks.every((c) => c.status === "ok");

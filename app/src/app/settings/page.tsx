@@ -203,7 +203,7 @@ export default function SettingsPage() {
               <p className="text-sm">{session.user.email ?? "-"}</p>
             </div>
             <p className="text-xs text-t-faint">
-              이름과 이메일은 Keycloak 계정에서 변경할 수 있습니다.
+              이름과 이메일은 로그인한 소셜 계정(Google·네이버)에서 관리됩니다.
             </p>
           </div>
         </CardContent>

@@ -14,7 +14,7 @@ export async function PATCH(request: NextRequest) {
   }
 
   const user = await prisma.user.findUnique({
-    where: { keycloakId: session.user.id },
+    where: { id: session.user.id },
     select: { id: true },
   });
   if (!user) {

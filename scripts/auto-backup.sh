@@ -37,13 +37,7 @@ docker compose -f "${PROJECT_DIR}/docker-compose.yml" exec -T postgres \
   pg_dump -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" --format=custom \
   > "${BACKUP_DIR}/randonneur.dump"
 
-# 2. PostgreSQL keycloak
-echo "[$(date)] Backing up keycloak database..."
-docker compose -f "${PROJECT_DIR}/docker-compose.yml" exec -T postgres \
-  pg_dump -U "${POSTGRES_USER}" -d keycloak --format=custom \
-  > "${BACKUP_DIR}/keycloak.dump"
-
-# 3. MinIO data
+# 2. MinIO data
 echo "[$(date)] Backing up MinIO data..."
 mkdir -p "${BACKUP_DIR}/minio-data"
 if docker compose -f "${PROJECT_DIR}/docker-compose.yml" ps --status running minio 2>/dev/null | grep -q minio; then

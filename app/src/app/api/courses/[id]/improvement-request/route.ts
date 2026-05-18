@@ -15,7 +15,7 @@ export async function GET(
   }
 
   const user = await prisma.user.findUnique({
-    where: { keycloakId: session.user.id },
+    where: { id: session.user.id },
   });
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
@@ -51,7 +51,7 @@ export async function PUT(
   }
 
   const user = await prisma.user.findUnique({
-    where: { keycloakId: session.user.id },
+    where: { id: session.user.id },
   });
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });

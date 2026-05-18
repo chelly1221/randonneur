@@ -630,7 +630,7 @@ export default function SystemStatusPage() {
         </div>
 
         <p className="mb-4 text-sm text-t-muted">
-          DB(PostgreSQL, Keycloak)와 파일(MinIO)을 포함한 전체 백업을 생성하고 다운로드합니다.
+          DB(PostgreSQL)와 파일(MinIO)을 포함한 전체 백업을 생성하고 다운로드합니다.
         </p>
 
         {createError && (

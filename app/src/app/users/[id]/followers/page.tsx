@@ -29,7 +29,7 @@ export default async function FollowersPage({
 
   if (session?.user?.id) {
     const currentUser = await prisma.user.findUnique({
-      where: { keycloakId: session.user.id },
+      where: { id: session.user.id },
       select: { id: true },
     });
     if (currentUser) {

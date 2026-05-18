@@ -9,7 +9,7 @@ export async function GET() {
   }
 
   const user = await prisma.user.findUnique({
-    where: { keycloakId: session.user.id },
+    where: { id: session.user.id },
   });
   if (!user) {
     return NextResponse.json({ reviewIds: [], commentIds: [] });

@@ -12,8 +12,7 @@ export function UserMenu() {
 
   const handleLogout = async () => {
     setOpen(false);
-    await signOut({ redirect: false });
-    window.location.href = "/api/auth/keycloak-logout";
+    await signOut({ callbackUrl: "/" });
   };
 
   if (!session) {

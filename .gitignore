@@ -27,15 +27,6 @@ Thumbs.db
 # Docker volumes
 pg_data/
 minio_data/
-valhalla_tiles/
-
-# Valhalla generated data (large binary files)
-valhalla/elevation_data/
-valhalla/valhalla_tiles/
-valhalla/valhalla_tiles.tar
-valhalla/south-korea-latest.osm.pbf
-valhalla/duplicateways.txt
-valhalla/file_hashes.txt
 
 # Prisma
 app/prisma/migrations/**/migration_lock.toml

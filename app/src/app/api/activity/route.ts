@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
 
   if (session?.user?.id) {
     dbUser = await prisma.user.findUnique({
-      where: { keycloakId: session.user.id },
+      where: { id: session.user.id },
       select: { id: true },
     });
     if (dbUser && filter === "following") {

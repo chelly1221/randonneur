@@ -22,7 +22,7 @@ export default async function EditEventPage({
 
   const { id } = await params;
   const user = await prisma.user.findUnique({
-    where: { keycloakId: session.user.id },
+    where: { id: session.user.id },
     select: { id: true },
   });
 

@@ -29,7 +29,7 @@ export default async function EventDetailPage({
 
   if (session?.user?.id) {
     const user = await prisma.user.findUnique({
-      where: { keycloakId: session.user.id },
+      where: { id: session.user.id },
       select: { id: true },
     });
     currentDbUserId = user?.id ?? null;

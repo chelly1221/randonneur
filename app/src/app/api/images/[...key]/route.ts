@@ -58,7 +58,7 @@ export async function GET(
     if (!isAdmin) {
       // completions/ keys are expected to contain the userId, e.g. "completions/{userId}/..."
       const dbUser = await prisma.user.findUnique({
-        where: { keycloakId: session.user.id },
+        where: { id: session.user.id },
         select: { id: true },
       });
       if (!dbUser) {

@@ -15,12 +15,20 @@ function LoginForm() {
         <p className="mb-6 text-center text-sm text-t-muted">
           한국 랜도너스 퍼머넌트 코스 플랫폼
         </p>
-        <button
-          onClick={() => signIn("keycloak", { callbackUrl })}
-          className="w-full rounded-md bg-t-primary px-4 py-3 text-sm font-medium text-white hover:bg-t-primary-x transition-colors"
-        >
-          Keycloak으로 로그인
-        </button>
+        <div className="space-y-3">
+          <button
+            onClick={() => signIn("google", { callbackUrl })}
+            className="w-full rounded-md border border-gray-300 bg-white px-4 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+          >
+            Google로 로그인
+          </button>
+          <button
+            onClick={() => signIn("naver", { callbackUrl })}
+            className="w-full rounded-md bg-[#03C75A] px-4 py-3 text-sm font-medium text-white transition-colors hover:opacity-90"
+          >
+            네이버로 로그인
+          </button>
+        </div>
       </div>
     </main>
   );

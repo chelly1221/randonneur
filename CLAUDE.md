@@ -11,11 +11,10 @@
 | Component | Technology |
 |-----------|-----------|
 | Frontend | Next.js 15 (App Router) + TypeScript |
-| Routing Engine | Valhalla (self-hosted, Korea OSM) |
 | Map | MapLibre GL JS v4 |
 | Map Tiles | Public (OSM, OpenTopoMap, CARTO) |
 | Charts | Recharts |
-| Auth | Keycloak 26.0 + Auth.js v5 |
+| Auth | Auth.js v5 (Google + Naver OAuth, direct) |
 | Database | PostgreSQL 16 + PostGIS 3.4 |
 | ORM | Prisma 6 |
 | Storage | MinIO (GPX + images) |
@@ -28,9 +27,7 @@
 ```
 docker-compose.yml
 ├── app        (Next.js 15 — port 3100:3000)
-├── postgres   (PostGIS 16-3.4 — shared by app + keycloak)
-├── keycloak   (Keycloak 26.0 — port 8080)
-├── valhalla   (Valhalla routing — port 8002)
+├── postgres   (PostGIS 16-3.4)
 └── minio      (MinIO S3 — port 9200:9000, 9201:9001)
 ```
 
@@ -52,13 +49,13 @@ app/src/
 │   ├── layout/            # header, theme-selector, search-bar
 │   └── ui/                # Shared primitives
 ├── lib/
-│   ├── auth.ts, db.ts, minio.ts, valhalla.ts, gpx.ts  # Core services
+│   ├── auth.ts, db.ts, minio.ts, gpx.ts  # Core services
 │   ├── *-scraper.ts       # 19 scraper files (see Scrapers section)
 │   └── theme.ts, badges.ts, notifications.ts, utils.ts
 └── types/
 ```
 
-Other: `prisma/schema.prisma`, `keycloak/realm-export.json`, `scripts/migrate-*.sh`
+Other: `prisma/schema.prisma`, `scripts/migrate-*.sh`
 
 ## Automated Scrapers
 
@@ -95,7 +92,7 @@ Settings per scraper (in `settings` table): `{PREFIX}_SCRAPER_ENABLED`, `{PREFIX
 UUID primary keys. Extensions: `postgis`, `uuid-ossp`.
 
 - **`courses`** — name, course_number, distance_km, elevation_m, start/end_location, region, category[], tags[], description, designer, gpx_file_key, archived, geom (LineString 4326), country, source_type, external_id, official_page_url
-- **`users`** — keycloak_id, display_name, email, role (admin/user), status (active/banned)
+- **`users`** — display_name, email, role (admin/user), status (active/banned)
 - **`completions`** — user_id, course_id, completed_at, completion_status (success/dnf/dnq/dns/partial)
 - **`reviews`** — user_id, course_id, difficulty (1-5), content (HTML), completion_status
 - **`events`** — title, event_type, location, start/end_date, source_type, external_id, source_url, country
@@ -108,7 +105,7 @@ UUID primary keys. Extensions: `postgis`, `uuid-ossp`.
 All under `app/src/app/api/`. Standard REST patterns:
 
 - **Courses**: `/api/courses` (list/create), `/api/courses/[id]` (CRUD), `/api/courses/[id]/gpx`, `/api/courses/[id]/reviews`, `/api/courses/popular`, `/api/courses/batch-download`
-- **Auth**: `/api/auth/[...nextauth]`, `/api/auth/keycloak-logout`
+- **Auth**: `/api/auth/[...nextauth]`
 - **Social**: `/api/completions`, `/api/favorites`, `/api/likes`, `/api/follows`, `/api/reports`
 - **Community**: `/api/events` (+ countries, participate), `/api/journals`, `/api/polls`, `/api/gallery`, `/api/shared-routes`, `/api/activity`
 - **Users**: `/api/users/[id]`, `/api/users/me`, `/api/search`, `/api/notifications`
@@ -141,7 +138,6 @@ Environment variables: see `.env.example`. Note: URL-encode special chars in DAT
 - **Multi-country** — `/courses` shows KR only, `/courses/world` shows non-KR
 - **Admin scraper UI** — data-driven `ScraperSection` + `SCRAPER_CONFIGS` array
 - **GPX storage** — MinIO `gpx-files` bucket, keys: `courses/{course_id}.gpx`, images: `images/`
-- **Valhalla** — first start builds routing graph from Korea OSM PBF (10-30 min)
 
 ## Color Theme — Randonneuring Sky
 

@@ -14,17 +14,12 @@ const SETTING_DEFINITIONS: SettingDef[] = [
   // Auth
   { key: "NEXTAUTH_SECRET", label: "NextAuth 시크릿", group: "인증 (Auth)", password: true },
   { key: "NEXTAUTH_URL", label: "NextAuth URL", group: "인증 (Auth)" },
-  { key: "AUTH_KEYCLOAK_ID", label: "Keycloak 클라이언트 ID", group: "인증 (Auth)" },
-  { key: "AUTH_KEYCLOAK_SECRET", label: "Keycloak 클라이언트 시크릿", group: "인증 (Auth)", password: true },
-  { key: "AUTH_KEYCLOAK_ISSUER", label: "Keycloak Issuer URL", group: "인증 (Auth)" },
   // MinIO
   { key: "MINIO_ENDPOINT", label: "MinIO 엔드포인트", group: "파일 저장소 (MinIO)" },
   { key: "MINIO_PORT", label: "MinIO 포트", group: "파일 저장소 (MinIO)" },
   { key: "MINIO_BUCKET", label: "MinIO 버킷명", group: "파일 저장소 (MinIO)" },
   { key: "MINIO_ROOT_USER", label: "MinIO 사용자", group: "파일 저장소 (MinIO)" },
   { key: "MINIO_ROOT_PASSWORD", label: "MinIO 비밀번호", group: "파일 저장소 (MinIO)", password: true },
-  // Valhalla
-  { key: "VALHALLA_URL", label: "Valhalla URL", group: "경로 엔진 (Valhalla)" },
 ];
 
 export async function GET() {

@@ -76,13 +76,7 @@ export async function POST() {
       { env: pgEnv, timeout: 120_000 }
     );
 
-    // --- 2. pg_dump keycloak DB ---
-    execSync(
-      `pg_dump -h ${db.host} -p ${db.port} -U ${db.user} -d keycloak --format=custom -f "${backupDir}/keycloak.dump"`,
-      { env: pgEnv, timeout: 120_000 }
-    );
-
-    // --- 3. Export MinIO bucket ---
+    // --- 2. Export MinIO bucket ---
     const minioDir = path.join(backupDir, "minio-data");
     fs.mkdirSync(minioDir, { recursive: true });
 
@@ -116,7 +110,7 @@ export async function POST() {
       }
     }
 
-    // --- 4. Create tar.gz archive ---
+    // --- 3. Create tar.gz archive ---
     const archivePath = path.join(BACKUPS_DIR, `${backupName}.tar.gz`);
     execSync(`tar -czf "${archivePath}" -C "${BACKUPS_DIR}" "${backupName}"`, {
       timeout: 120_000,

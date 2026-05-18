@@ -53,7 +53,7 @@ model Course {
 
 model User {
   id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  keycloakId  String   @unique @map("keycloak_id")
+  keycloakId  String?  @unique @map("keycloak_id")
   displayName String   @map("display_name")
   email       String   @unique
   role        String   @default("user")

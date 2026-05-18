@@ -1,12 +1,12 @@
 import { prisma } from "./db";
 
 /**
- * Resolve a keycloak ID to the database user UUID.
- * Returns null if user not found.
+ * Validate that a user ID exists in the database.
+ * Returns the ID if found, null otherwise.
  */
-async function resolveUserId(keycloakId: string): Promise<string | null> {
+async function resolveUserId(userId: string): Promise<string | null> {
   const user = await prisma.user.findUnique({
-    where: { keycloakId },
+    where: { id: userId },
     select: { id: true },
   });
   return user?.id ?? null;
@@ -14,21 +14,21 @@ async function resolveUserId(keycloakId: string): Promise<string | null> {
 
 /**
  * Log an admin action to the audit log.
- * Accepts keycloak ID (from session.user.id) and resolves to DB user ID.
+ * Accepts the user ID (session.user.id is the DB user UUID).
  * Fire-and-forget — errors are logged but never thrown.
  */
 export function logAuditAction(
-  keycloakIdOrUserId: string,
+  userId: string,
   action: string,
   targetType?: string | null,
   targetId?: string | null,
   details?: Record<string, unknown> | null,
   ipHash?: string | null
 ) {
-  resolveUserId(keycloakIdOrUserId)
+  resolveUserId(userId)
     .then((dbUserId) => {
       if (!dbUserId) {
-        console.error("[audit] Could not resolve user for keycloak ID:", keycloakIdOrUserId);
+        console.error("[audit] Could not resolve user:", userId);
         return;
       }
       return prisma.auditLog.create({

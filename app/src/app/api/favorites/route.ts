@@ -15,9 +15,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Missing courseId" }, { status: 400 });
   }
 
-  // Find user by keycloakId
+  // Find the user
   const user = await prisma.user.findUnique({
-    where: { keycloakId: session.user.id },
+    where: { id: session.user.id },
   });
 
   if (!user) {

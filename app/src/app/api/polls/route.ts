@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
   let currentUserId: string | null = null;
   if (session?.user?.id) {
     const user = await prisma.user.findUnique({
-      where: { keycloakId: session.user.id },
+      where: { id: session.user.id },
       select: { id: true },
     });
     currentUserId = user?.id ?? null;

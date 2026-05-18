@@ -18,7 +18,7 @@ export default async function RideDetailPage({
 
   if (session?.user?.id) {
     const dbUser = await prisma.user.findUnique({
-      where: { keycloakId: session.user.id },
+      where: { id: session.user.id },
       select: { id: true },
     });
     currentUserId = dbUser?.id ?? null;

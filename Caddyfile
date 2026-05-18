@@ -4,7 +4,7 @@
 
 {
 	# ACME account email — used for cert-expiry notices. Set before deploying.
-	email YOUR_EMAIL@example.com
+	email server.chelly.kr@gmail.com
 }
 
 # ── audax.3chan.kr : Randonneur platform ───────────────────────────────

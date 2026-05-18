@@ -82,7 +82,9 @@ fi
 
 # --- Extract archive ---
 echo "[1/4] Extracting archive..."
-BACKUP_DIR=$(tar -tzf "${ARCHIVE}" | head -1 | cut -d'/' -f1)
+# Archive's top-level dir matches the archive name without .tar.gz
+# (avoids `tar -tzf | head` which triggers SIGPIPE/pipefail on large archives)
+BACKUP_DIR=$(basename "${ARCHIVE}" .tar.gz)
 tar -xzf "${ARCHIVE}" -C "${PROJECT_DIR}"
 BACKUP_PATH="${PROJECT_DIR}/${BACKUP_DIR}"
 echo "  -> ${BACKUP_DIR}"

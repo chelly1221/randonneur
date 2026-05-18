@@ -9,10 +9,11 @@ app/out/
 # Production
 app/build/
 
-# Environment
+# Environment & secrets
 .env
 .env.local
 .env.*.local
+.rsync-pass
 
 # IDE
 .vscode/

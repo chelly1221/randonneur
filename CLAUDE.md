@@ -20,18 +20,21 @@
 | Storage | MinIO (GPX + images) |
 | Orchestration | Docker Compose |
 
-**Fully on-premise.** No external SaaS except public map tile CDNs.
+**Hosting.** Production runs on a single Hetzner Cloud VM via Docker Compose (see `DEPLOYMENT.md`). External dependencies are minimal: public map-tile CDNs, Google/Naver OAuth, and Tailscale (private link for NAS backups).
 
 ## Architecture
 
+**Production** — single Hetzner Cloud VM, `docker-compose.prod.yml`:
+
 ```
-docker-compose.yml
-├── app        (Next.js 15 — port 3100:3000)
-├── postgres   (PostGIS 16-3.4)
-└── minio      (MinIO S3 — port 9200:9000, 9201:9001)
+caddy        (reverse proxy, auto-HTTPS — :80/:443, only exposed service)
+├── app      (Next.js 15 standalone — internal :3000)
+├── postgres (PostGIS 16-3.4 — internal)
+└── minio    (MinIO S3 — internal)
 ```
 
-Host ports 3000, 5432, 9000, 9001 already in use, hence non-standard mappings. **No local Node.js** — all npm/node via Docker.
+**Local dev** — `docker-compose.yml` (app in `next dev`, ports 3100/9200/9201).
+Full deployment runbook: `DEPLOYMENT.md`. **No local Node.js** — all npm/node via Docker.
 
 ## Key Directories
 
@@ -114,14 +117,17 @@ All under `app/src/app/api/`. Standard REST patterns:
 ## Build & Run
 
 ```bash
-docker compose up -d --build          # Start all (production)
-docker compose up -d --build app      # Rebuild app only
+# Local dev (docker-compose.yml)
+docker compose up -d --build          # Start dev stack
 docker compose logs -f app            # View logs
-docker compose down                   # Stop all
+
+# Production (Hetzner VM — see DEPLOYMENT.md for the full runbook)
+docker compose -f docker-compose.prod.yml up -d --build
 # Migrations (use prisma@6 to avoid v7)
-docker compose exec app npx --package=prisma@6 prisma migrate deploy
-# Backup/restore
-./scripts/migrate-export.sh           # Creates backup-*.tar.gz
+docker compose -f docker-compose.prod.yml run --rm app sh -c "npx --package=prisma@6 prisma migrate deploy"
+
+# Backup/restore (COMPOSE_FILE env selects the target stack)
+./scripts/migrate-export.sh           # Creates backups/backup-*.tar.gz
 ./scripts/migrate-import.sh backup-*.tar.gz
 ```
 

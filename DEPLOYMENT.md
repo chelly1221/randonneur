@@ -2,22 +2,27 @@
 
 Runbook for hosting Randonneur on one Hetzner Cloud VM with Docker Compose.
 The dev workflow (`docker-compose.yml`) is unchanged; production uses
-`docker-compose.prod.yml` + `Caddyfile`.
+`docker-compose.prod.yml`. A standalone Caddy stack (`proxy/`) fronts every
+service on the VM.
 
 ## Architecture
 
 ```
 Hetzner Cloud VM (CPX31 — 4 vCPU / 8 GB / 160 GB, Hillsboro US-West)
-└── docker compose -f docker-compose.prod.yml
-    ├── caddy      :80/:443  — only externally exposed service, auto-HTTPS
-    ├── app        Next.js (standalone build) — internal :3000
+├── /srv/proxy   docker compose up -d
+│   └── caddy      :80/:443 — only externally exposed container, auto-HTTPS;
+│                  routes each domain over the shared external 'web' network
+└── /srv/audax   docker compose -f docker-compose.prod.yml up -d
+    ├── app        Next.js (standalone) — internal :3000, web alias audax-app
     ├── postgres   internal :5432  (PostGIS — `randonneur` DB)
     └── minio      internal :9000  (GPX + images)
+Other service stacks (e.g. /srv/cycle) join the same 'web' network.
 Backups → local NAS over Tailscale (scripts/backup-to-nas.sh)
 ```
 
 Auth is handled in-app by Auth.js with Google + Naver OAuth directly — there
-is no Keycloak. Caddy proxies all of `audax.3chan.kr` to the Next.js app.
+is no Keycloak. The shared Caddy proxy routes `audax.3chan.kr` to the Next.js
+app over the `web` network (alias `audax-app`).
 
 ## Phase 1 — Provision & harden the VM  ✅ done
 
@@ -110,13 +115,30 @@ The dump carries the schema as it was on the old server, so the new
 
 ---
 
-## Appendix A — Adding another service later
+## Appendix A — The shared proxy & adding another service
 
+Caddy runs as its own stack so it can front every service on the VM:
+
+```bash
+docker network create web                       # one-time, shared network
+cd /srv/proxy && docker compose up -d            # the Caddy stack
+```
+
+Each service is a self-contained stack in `/srv/<service>/` that joins the
+external `web` network and exposes its app container under a `{service}-app`
+alias (postgres/minio stay on the internal default network, no host ports).
+
+To add a service:
 1. Resize the VM if RAM is tight (Hetzner console → Rescale; reboot).
-2. Create the service's database + a dedicated least-privilege role in the
-   shared Postgres.
-3. Add the service block to `docker-compose.prod.yml` (no host ports).
-4. Add a site block to `Caddyfile` for its domain; point DNS at the VM.
+2. Deploy the service stack under `/srv/<service>/` with its own
+   `docker-compose.prod.yml`, joined to the `web` network.
+3. Add a site block to `proxy/Caddyfile` pointing the domain at the
+   `{service}-app` alias, then reload Caddy:
+   ```bash
+   cd /srv/proxy && docker compose exec caddy \
+     caddy reload --config /etc/caddy/Caddyfile
+   ```
+4. Point the domain's DNS A record at the VM's public IP.
 
 ## Appendix B — Future Prisma migrations
 

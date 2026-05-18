@@ -2,9 +2,12 @@
 #
 #   docker compose -f docker-compose.prod.yml up -d --build
 #
-# Caddy is the ONLY service bound to host ports (80/443). Every other
-# service is reachable only on the internal Docker network — postgres,
-# postgres and minio publish no host ports by design.
+# No service here publishes a host port. The shared Caddy proxy stack
+# (/srv/proxy) terminates TLS on 80/443 and routes audax.3chan.kr to this
+# app via the external 'web' network (alias audax-app). Postgres and minio
+# stay on the internal default network only.
+#
+# Requires the shared network:  docker network create web
 #
 # The dev stack (docker-compose.yml) stays untouched for local work.
 
@@ -52,6 +55,11 @@ services:
       NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY}
     volumes:
       - ./backups:/backups
+    networks:
+      default: {}
+      web:
+        aliases:
+          - audax-app
     depends_on:
       postgres:
         condition: service_healthy
@@ -73,18 +81,9 @@ services:
       timeout: 5s
       retries: 10
 
-  caddy:
-    image: caddy:2-alpine
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      - app
+networks:
+  web:
+    external: true
 
 volumes:
   pg_data:
@@ -93,5 +92,3 @@ volumes:
   minio_data:
     labels:
       com.audax.protect: "true"
-  caddy_data:
-  caddy_config:

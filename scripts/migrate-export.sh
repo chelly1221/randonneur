@@ -10,7 +10,7 @@ PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 # Which compose file to target — override with COMPOSE_FILE=docker-compose.prod.yml
 COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.yml}"
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
-BACKUP_NAME="backup-${TIMESTAMP}"
+BACKUP_NAME="audax-backup-${TIMESTAMP}"
 BACKUPS_DIR="${PROJECT_DIR}/backups"
 mkdir -p "${BACKUPS_DIR}"
 BACKUP_DIR="${BACKUPS_DIR}/${BACKUP_NAME}"

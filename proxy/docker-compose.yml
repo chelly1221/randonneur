@@ -1,0 +1,34 @@
+# Shared reverse-proxy stack — single Hetzner VM.
+#
+#   docker compose up -d
+#
+# One Caddy instance fronts every service on the VM. Each service stack
+# (audax, cycle, ...) joins the external 'web' network and exposes its app
+# container under a network alias; Caddy routes per-domain to those aliases
+# (see Caddyfile). Caddy is the ONLY container bound to host ports 80/443.
+#
+# First-time setup (before bringing this up):
+#   docker network create web
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - web
+
+networks:
+  web:
+    external: true
+
+volumes:
+  caddy_data:
+  caddy_config:

@@ -24,14 +24,19 @@
 
 ## Architecture
 
-**Production** — single Hetzner Cloud VM, `docker-compose.prod.yml`:
+**Production** — single Hetzner Cloud VM. A standalone Caddy stack fronts every
+service; audax runs as its own stack (`docker-compose.prod.yml`):
 
 ```
-caddy        (reverse proxy, auto-HTTPS — :80/:443, only exposed service)
-├── app      (Next.js 15 standalone — internal :3000)
-├── postgres (PostGIS 16-3.4 — internal)
-└── minio    (MinIO S3 — internal)
+/srv/proxy   caddy        (reverse proxy, auto-HTTPS — :80/:443, only exposed service)
+/srv/audax   ├── app      (Next.js 15 standalone — internal :3000, web alias audax-app)
+             ├── postgres (PostGIS 16-3.4 — internal)
+             └── minio    (MinIO S3 — internal)
 ```
+
+Caddy and each service stack share the external `web` Docker network. Other
+services (e.g. cycle) run as sibling stacks under `/srv/` — see `proxy/` and
+`DEPLOYMENT.md` Appendix A.
 
 **Local dev** — `docker-compose.yml` (app in `next dev`, ports 3100/9200/9201).
 Full deployment runbook: `DEPLOYMENT.md`. **No local Node.js** — all npm/node via Docker.

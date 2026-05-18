@@ -31,7 +31,7 @@ echo "[backup-to-nas] $(date -Is) starting (compose: ${COMPOSE_FILE})"
 "${SCRIPT_DIR}/migrate-export.sh"
 
 # 2. Locate the newest archive it produced.
-ARCHIVE=$(ls -t "${PROJECT_DIR}/backups"/backup-*.tar.gz | head -1)
+ARCHIVE=$(ls -t "${PROJECT_DIR}/backups"/audax-backup-*.tar.gz | head -1)
 echo "[backup-to-nas] archive: ${ARCHIVE}"
 
 # 3. Push to the NAS rsync module (transport encrypted by Tailscale).
@@ -40,7 +40,7 @@ rsync -av --partial --password-file="${RSYNC_PASSWORD_FILE}" \
 echo "[backup-to-nas] uploaded to ${NAS_DEST}"
 
 # 4. Prune local archives, keeping the most recent KEEP_LOCAL.
-ls -t "${PROJECT_DIR}/backups"/backup-*.tar.gz \
+ls -t "${PROJECT_DIR}/backups"/audax-backup-*.tar.gz \
   | tail -n +"$((KEEP_LOCAL + 1))" \
   | xargs -r rm -v
 

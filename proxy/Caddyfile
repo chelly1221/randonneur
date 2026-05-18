@@ -23,6 +23,16 @@ cycle.3chan.kr {
 	reverse_proxy cycle-app:3000
 }
 
+# ── nextcloud.3chan.kr : Nextcloud ─────────────────────────────────────
+nextcloud.3chan.kr {
+	encode zstd gzip
+	# DAV service discovery — keep the redirect on https (the container's
+	# own .htaccess would emit an http:// Location behind the proxy).
+	redir /.well-known/carddav /remote.php/dav/ 301
+	redir /.well-known/caldav /remote.php/dav/ 301
+	reverse_proxy nextcloud-app:80
+}
+
 # ── Future services ────────────────────────────────────────────────────
 # Add each new service as its own site block, joined to the 'web' network
 # with a {service}-app alias. Example:

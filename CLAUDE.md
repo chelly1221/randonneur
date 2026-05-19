@@ -41,6 +41,11 @@ services (e.g. cycle) run as sibling stacks under `/srv/` — see `proxy/` and
 **Local dev** — `docker-compose.yml` (app in `next dev`, ports 3100/9200/9201).
 Full deployment runbook: `DEPLOYMENT.md`. **No local Node.js** — all npm/node via Docker.
 
+**Deploy** — the repo is a git checkout at `/srv/audax` on the VM. Develop
+locally, commit, push; then on the VM run `./deploy.sh` (`git pull --ff-only`
++ `docker compose -f docker-compose.prod.yml up -d --build`). Never edit code
+directly on the VM — it is production.
+
 ## Key Directories
 
 ```
@@ -126,7 +131,9 @@ All under `app/src/app/api/`. Standard REST patterns:
 docker compose up -d --build          # Start dev stack
 docker compose logs -f app            # View logs
 
-# Production (Hetzner VM — see DEPLOYMENT.md for the full runbook)
+# Production (Hetzner VM) — deploy latest committed code
+./deploy.sh                           # git pull --ff-only + compose up -d --build
+# ...or manually (see DEPLOYMENT.md for the full runbook):
 docker compose -f docker-compose.prod.yml up -d --build
 # Migrations (use prisma@6 to avoid v7)
 docker compose -f docker-compose.prod.yml run --rm app sh -c "npx --package=prisma@6 prisma migrate deploy"
